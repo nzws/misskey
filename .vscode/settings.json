@@ -6,6 +6,7 @@
     "files.associations": {
         "*.test.ts": "typescript"
     },
+    "jest.autoRun": "off",
 		"editor.formatOnSave": false,
 		"editor.formatOnPaste": false,
 }
