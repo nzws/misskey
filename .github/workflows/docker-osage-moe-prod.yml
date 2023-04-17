@@ -31,6 +31,6 @@ jobs:
           push: true
           platforms: linux/amd64
           provenance: false
-          tags: ghcr.io/nzws/misskey:osage.moe-production
+          tags: ghcr.io/nzws/osage.moe:production-amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
