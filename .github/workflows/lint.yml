@@ -14,11 +14,11 @@ jobs:
         submodules: true
     - uses: pnpm/action-setup@v2
       with:
-        version: 7
+        version: 8
         run_install: false
     - uses: actions/setup-node@v3.6.0
       with:
-        node-version: 18.x
+        node-version-file: '.node-version'
         cache: 'pnpm'
     - run: corepack enable
     - run: pnpm i --frozen-lockfile
@@ -45,7 +45,7 @@ jobs:
         run_install: false
     - uses: actions/setup-node@v3.6.0
       with:
-        node-version: 18.x
+        node-version-file: '.node-version'
         cache: 'pnpm'
     - run: corepack enable
     - run: pnpm i --frozen-lockfile
@@ -71,7 +71,7 @@ jobs:
         run_install: false
     - uses: actions/setup-node@v3.6.0
       with:
-        node-version: 18.x
+        node-version-file: '.node-version'
         cache: 'pnpm'
     - run: corepack enable
     - run: pnpm i --frozen-lockfile

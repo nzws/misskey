@@ -6,7 +6,8 @@
     "files.associations": {
         "*.test.ts": "typescript"
     },
-    "jest.autoRun": "off",
 		"editor.formatOnSave": false,
 		"editor.formatOnPaste": false,
+    "jest.jestCommandLine": "pnpm run jest",
+    "jest.autoRun": "off"
 }
