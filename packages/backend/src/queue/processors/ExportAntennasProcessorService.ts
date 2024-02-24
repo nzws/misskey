@@ -1,10 +1,14 @@
+/*
+ * SPDX-FileCopyrightText: syuilo and misskey-project
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 import fs from 'node:fs';
 import { Inject, Injectable } from '@nestjs/common';
 import { format as DateFormat } from 'date-fns';
 import { In } from 'typeorm';
 import { DI } from '@/di-symbols.js';
-import type { AntennasRepository, UsersRepository, UserListJoiningsRepository, User } from '@/models/index.js';
-import type { Config } from '@/config.js';
+import type { AntennasRepository, UsersRepository, UserListMembershipsRepository, MiUser } from '@/models/_.js';
 import Logger from '@/logger.js';
 import { DriveService } from '@/core/DriveService.js';
 import { bindThis } from '@/decorators.js';
@@ -12,25 +16,22 @@ import { createTemp } from '@/misc/create-temp.js';
 import { UtilityService } from '@/core/UtilityService.js';
 import { QueueLoggerService } from '../QueueLoggerService.js';
 import type { DBExportAntennasData } from '../types.js';
-import type Bull from 'bull';
+import type * as Bull from 'bullmq';
 
 @Injectable()
 export class ExportAntennasProcessorService {
 	private logger: Logger;
 
 	constructor (
-		@Inject(DI.config)
-		private config: Config,
-
 		@Inject(DI.usersRepository)
 		private usersRepository: UsersRepository,
 
 		@Inject(DI.antennasRepository)
 		private antennsRepository: AntennasRepository,
 
-		@Inject(DI.userListJoiningsRepository)
-		private userListJoiningsRepository: UserListJoiningsRepository,
-	
+		@Inject(DI.userListMembershipsRepository)
+		private userListMembershipsRepository: UserListMembershipsRepository,
+
 		private driveService: DriveService,
 		private utilityService: UtilityService,
 		private queueLoggerService: QueueLoggerService,
@@ -39,10 +40,9 @@ export class ExportAntennasProcessorService {
 	}
 
 	@bindThis
-	public async process(job: Bull.Job<DBExportAntennasData>, done: () => void): Promise<void> {
+	public async process(job: Bull.Job<DBExportAntennasData>): Promise<void> {
 		const user = await this.usersRepository.findOneBy({ id: job.data.user.id });
 		if (user == null) {
-			done();
 			return;
 		}
 		const [path, cleanup] = await createTemp();
@@ -63,11 +63,11 @@ export class ExportAntennasProcessorService {
 			const antennas = await this.antennsRepository.findBy({ userId: job.data.user.id });
 			write('[');
 			for (const [index, antenna] of antennas.entries()) {
-				let users: User[] | undefined;
+				let users: MiUser[] | undefined;
 				if (antenna.userListId !== null) {
-					const joinings = await this.userListJoiningsRepository.findBy({ userListId: antenna.userListId });
+					const memberships = await this.userListMembershipsRepository.findBy({ userListId: antenna.userListId });
 					users = await this.usersRepository.findBy({
-						id: In(joinings.map(j => j.userId)),
+						id: In(memberships.map(j => j.userId)),
 					});
 				}
 				write(JSON.stringify({
@@ -80,6 +80,7 @@ export class ExportAntennasProcessorService {
 						return this.utilityService.getFullApAccount(u.username, u.host); // acct
 					}) : null,
 					caseSensitive: antenna.caseSensitive,
+					localOnly: antenna.localOnly,
 					withReplies: antenna.withReplies,
 					withFile: antenna.withFile,
 					notify: antenna.notify,
@@ -96,7 +97,6 @@ export class ExportAntennasProcessorService {
 			this.logger.succ('Exported to: ' + driveFile.id);
 		} finally {
 			cleanup();
-			done();
 		}
 	}
 }

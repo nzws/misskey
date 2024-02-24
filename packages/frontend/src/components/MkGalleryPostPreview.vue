@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <template>
 <MkA :to="`/gallery/${post.id}`" class="ttasepnz _panel" tabindex="-1" @pointerenter="enterHover" @pointerleave="leaveHover">
 	<div class="thumbnail">
@@ -5,16 +10,13 @@
 			<ImgWithBlurhash
 				class="img layered"
 				:transition="safe ? null : {
-					enterActiveClass: $style.transition_toggle_enterActive,
+					duration: 500,
 					leaveActiveClass: $style.transition_toggle_leaveActive,
-					enterFromClass: $style.transition_toggle_enterFrom,
 					leaveToClass: $style.transition_toggle_leaveTo,
-					enterToClass: $style.transition_toggle_enterTo,
-					leaveFromClass: $style.transition_toggle_leaveFrom,
 				}"
-				:src="post.files[0].thumbnailUrl"
-				:hash="post.files[0].blurhash"
-				:force-blurhash="!show"
+				:src="post.files?.[0]?.thumbnailUrl"
+				:hash="post.files?.[0]?.blurhash"
+				:forceBlurhash="!show"
 			/>
 		</Transition>
 	</div>
@@ -30,13 +32,13 @@
 </template>
 
 <script lang="ts" setup>
-import * as misskey from 'misskey-js';
+import * as Misskey from 'misskey-js';
 import { computed, ref } from 'vue';
 import ImgWithBlurhash from '@/components/MkImgWithBlurhash.vue';
-import { defaultStore } from '@/store';
+import { defaultStore } from '@/store.js';
 
 const props = defineProps<{
-	post: misskey.entities.GalleryPost;
+	post: Misskey.entities.GalleryPost;
 }>();
 
 const hover = ref(false);
@@ -53,23 +55,15 @@ function leaveHover(): void {
 </script>
 
 <style lang="scss" module>
-.transition_toggle_enterActive,
 .transition_toggle_leaveActive {
-	transition: opacity 0.5s;
+	transition: opacity .5s;
 	position: absolute;
 	top: 0;
 	left: 0;
 }
 
-.transition_toggle_enterFrom,
 .transition_toggle_leaveTo {
 	opacity: 0;
-}
-
-.transition_toggle_enterTo,
-.transition_toggle_leaveFrom {
-	transition: none;
-	opacity: 1;
 }
 </style>
 

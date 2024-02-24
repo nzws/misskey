@@ -41,6 +41,7 @@ docker-compose.yml
 # misskey
 /build
 built
+built-test
 /data
 /.cache-loader
 /db
@@ -57,6 +58,7 @@ api-docs.json
 ormconfig.json
 temp
 /packages/frontend/src/**/*.stories.ts
+tsdoc-metadata.json
 
 # blender backups
 *.blend1
@@ -64,3 +66,6 @@ temp
 *.blend3
 *.blend4
 *.blend5
+
+# VSCode addon
+.favorites.json

@@ -1,12 +1,17 @@
-import { setTimeout } from 'node:timers/promises';
+/*
+ * SPDX-FileCopyrightText: syuilo and misskey-project
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 import { Global, Inject, Module } from '@nestjs/common';
 import * as Redis from 'ioredis';
 import { DataSource } from 'typeorm';
 import { MeiliSearch } from 'meilisearch';
 import { DI } from './di-symbols.js';
-import { loadConfig } from './config.js';
+import { Config, loadConfig } from './config.js';
 import { createPostgresDataSource } from './postgres.js';
 import { RepositoryModule } from './models/RepositoryModule.js';
+import { allSettled } from './misc/promise-tracker.js';
 import type { Provider, OnApplicationShutdown } from '@nestjs/common';
 
 const $config: Provider = {
@@ -25,10 +30,10 @@ const $db: Provider = {
 
 const $meilisearch: Provider = {
 	provide: DI.meilisearch,
-	useFactory: (config) => {
+	useFactory: (config: Config) => {
 		if (config.meilisearch) {
 			return new MeiliSearch({
-				host: `${config.meilisearch.ssl ? 'https' : 'http' }://${config.meilisearch.host}:${config.meilisearch.port}`,
+				host: `${config.meilisearch.ssl ? 'https' : 'http'}://${config.meilisearch.host}:${config.meilisearch.port}`,
 				apiKey: config.meilisearch.apiKey,
 			});
 		} else {
@@ -40,30 +45,16 @@ const $meilisearch: Provider = {
 
 const $redis: Provider = {
 	provide: DI.redis,
-	useFactory: (config) => {
-		return new Redis.Redis({
-			port: config.redis.port,
-			host: config.redis.host,
-			family: config.redis.family == null ? 0 : config.redis.family,
-			password: config.redis.pass,
-			keyPrefix: `${config.redis.prefix}:`,
-			db: config.redis.db ?? 0,
-		});
+	useFactory: (config: Config) => {
+		return new Redis.Redis(config.redis);
 	},
 	inject: [DI.config],
 };
 
 const $redisForPub: Provider = {
 	provide: DI.redisForPub,
-	useFactory: (config) => {
-		const redis = new Redis.Redis({
-			port: config.redisForPubsub.port,
-			host: config.redisForPubsub.host,
-			family: config.redisForPubsub.family == null ? 0 : config.redisForPubsub.family,
-			password: config.redisForPubsub.pass,
-			keyPrefix: `${config.redisForPubsub.prefix}:`,
-			db: config.redisForPubsub.db ?? 0,
-		});
+	useFactory: (config: Config) => {
+		const redis = new Redis.Redis(config.redisForPubsub);
 		return redis;
 	},
 	inject: [DI.config],
@@ -71,17 +62,18 @@ const $redisForPub: Provider = {
 
 const $redisForSub: Provider = {
 	provide: DI.redisForSub,
-	useFactory: (config) => {
-		const redis = new Redis.Redis({
-			port: config.redisForPubsub.port,
-			host: config.redisForPubsub.host,
-			family: config.redisForPubsub.family == null ? 0 : config.redisForPubsub.family,
-			password: config.redisForPubsub.pass,
-			keyPrefix: `${config.redisForPubsub.prefix}:`,
-			db: config.redisForPubsub.db ?? 0,
-		});
+	useFactory: (config: Config) => {
+		const redis = new Redis.Redis(config.redisForPubsub);
 		redis.subscribe(config.host);
 		return redis;
+	},
+	inject: [DI.config],
+};
+
+const $redisForTimelines: Provider = {
+	provide: DI.redisForTimelines,
+	useFactory: (config: Config) => {
+		return new Redis.Redis(config.redisForTimelines);
 	},
 	inject: [DI.config],
 };
@@ -89,8 +81,8 @@ const $redisForSub: Provider = {
 @Global()
 @Module({
 	imports: [RepositoryModule],
-	providers: [$config, $db, $meilisearch, $redis, $redisForPub, $redisForSub],
-	exports: [$config, $db, $meilisearch, $redis, $redisForPub, $redisForSub, RepositoryModule],
+	providers: [$config, $db, $meilisearch, $redis, $redisForPub, $redisForSub, $redisForTimelines],
+	exports: [$config, $db, $meilisearch, $redis, $redisForPub, $redisForSub, $redisForTimelines, RepositoryModule],
 })
 export class GlobalModule implements OnApplicationShutdown {
 	constructor(
@@ -98,22 +90,23 @@ export class GlobalModule implements OnApplicationShutdown {
 		@Inject(DI.redis) private redisClient: Redis.Redis,
 		@Inject(DI.redisForPub) private redisForPub: Redis.Redis,
 		@Inject(DI.redisForSub) private redisForSub: Redis.Redis,
-	) {}
+		@Inject(DI.redisForTimelines) private redisForTimelines: Redis.Redis,
+	) { }
 
-	async onApplicationShutdown(signal: string): Promise<void> {
-		if (process.env.NODE_ENV === 'test') {
-			// XXX:
-			// Shutting down the existing connections causes errors on Jest as
-			// Misskey has asynchronous postgres/redis connections that are not
-			// awaited.
-			// Let's wait for some random time for them to finish.
-			await setTimeout(5000);
-		}
+	public async dispose(): Promise<void> {
+		// Wait for all potential DB queries
+		await allSettled();
+		// And then disconnect from DB
 		await Promise.all([
 			this.db.destroy(),
 			this.redisClient.disconnect(),
 			this.redisForPub.disconnect(),
 			this.redisForSub.disconnect(),
+			this.redisForTimelines.disconnect(),
 		]);
+	}
+
+	async onApplicationShutdown(signal: string): Promise<void> {
+		await this.dispose();
 	}
 }

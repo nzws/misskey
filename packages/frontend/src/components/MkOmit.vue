@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <template>
 <div ref="content" :class="[$style.content, { [$style.omitted]: omitted }]">
 	<slot></slot>
@@ -8,8 +13,8 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted } from 'vue';
-import { i18n } from '@/i18n';
+import { onMounted, onUnmounted, shallowRef, ref } from 'vue';
+import { i18n } from '@/i18n.js';
 
 const props = withDefaults(defineProps<{
 	maxHeight?: number;
@@ -17,20 +22,26 @@ const props = withDefaults(defineProps<{
 	maxHeight: 200,
 });
 
-let content = $shallowRef<HTMLElement>();
-let omitted = $ref(false);
-let ignoreOmit = $ref(false);
+const content = shallowRef<HTMLElement>();
+const omitted = ref(false);
+const ignoreOmit = ref(false);
+
+const calcOmit = () => {
+	if (omitted.value || ignoreOmit.value || content.value == null) return;
+	omitted.value = content.value.offsetHeight > props.maxHeight;
+};
+
+const omitObserver = new ResizeObserver((entries, observer) => {
+	calcOmit();
+});
 
 onMounted(() => {
-	const calcOmit = () => {
-		if (omitted || ignoreOmit) return;
-		omitted = content.offsetHeight > props.maxHeight;
-	};
-
 	calcOmit();
-	new ResizeObserver((entries, observer) => {
-		calcOmit();
-	}).observe(content);
+	omitObserver.observe(content.value as HTMLElement);
+});
+
+onUnmounted(() => {
+	omitObserver.disconnect();
 });
 </script>
 

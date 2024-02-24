@@ -1,28 +1,38 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <template>
 <div class="_gaps_m">
-	<div class="llvierxe" :style="{ backgroundImage: $i.bannerUrl ? `url(${ $i.bannerUrl })` : null }">
-		<div class="avatar">
-			<MkAvatar class="avatar" :user="$i" @click="changeAvatar"/>
-			<MkButton primary rounded class="avatarEdit" @click="changeAvatar">{{ i18n.ts._profile.changeAvatar }}</MkButton>
+	<div class="_panel">
+		<div :class="$style.banner" :style="{ backgroundImage: $i.bannerUrl ? `url(${ $i.bannerUrl })` : null }">
+			<MkButton primary rounded :class="$style.bannerEdit" @click="changeBanner">{{ i18n.ts._profile.changeBanner }}</MkButton>
 		</div>
-		<MkButton primary rounded class="bannerEdit" @click="changeBanner">{{ i18n.ts._profile.changeBanner }}</MkButton>
+		<div :class="$style.avatarContainer">
+			<MkAvatar :class="$style.avatar" :user="$i" forceShowDecoration @click="changeAvatar"/>
+			<div class="_buttonsCenter">
+				<MkButton primary rounded @click="changeAvatar">{{ i18n.ts._profile.changeAvatar }}</MkButton>
+				<MkButton primary rounded link to="/settings/avatar-decoration">{{ i18n.ts.decorate }} <i class="ti ti-sparkles"></i></MkButton>
+			</div>
+		</div>
 	</div>
 
-	<MkInput v-model="profile.name" :max="30" manual-save>
+	<MkInput v-model="profile.name" :max="30" manualSave :mfmAutocomplete="['emoji']">
 		<template #label>{{ i18n.ts._profile.name }}</template>
 	</MkInput>
 
-	<MkTextarea v-model="profile.description" :max="500" tall manual-save>
+	<MkTextarea v-model="profile.description" :max="500" tall manualSave mfmAutocomplete :mfmPreview="true">
 		<template #label>{{ i18n.ts._profile.description }}</template>
 		<template #caption>{{ i18n.ts._profile.youCanIncludeHashtags }}</template>
 	</MkTextarea>
 
-	<MkInput v-model="profile.location" manual-save>
+	<MkInput v-model="profile.location" manualSave>
 		<template #label>{{ i18n.ts.location }}</template>
 		<template #prefix><i class="ti ti-map-pin"></i></template>
 	</MkInput>
 
-	<MkInput v-model="profile.birthday" type="date" manual-save>
+	<MkInput v-model="profile.birthday" type="date" manualSave>
 		<template #label>{{ i18n.ts.birthday }}</template>
 		<template #prefix><i class="ti ti-cake"></i></template>
 	</MkInput>
@@ -48,7 +58,7 @@
 				<Sortable
 					v-model="fields"
 					class="_gaps_s"
-					item-key="id"
+					itemKey="id"
 					:animation="150"
 					:handle="'.' + $style.dragItemHandle"
 					@start="e => e.item.classList.add('active')"
@@ -59,7 +69,7 @@
 							<button v-if="!fieldEditMode" class="_button" :class="$style.dragItemHandle" tabindex="-1"><i class="ti ti-menu"></i></button>
 							<button v-if="fieldEditMode" :disabled="fields.length <= 1" class="_button" :class="$style.dragItemRemove" @click="deleteField(index)"><i class="ti ti-x"></i></button>
 							<div :class="$style.dragItemForm">
-								<FormSplit :min-width="200">
+								<FormSplit :minWidth="200">
 									<MkInput v-model="element.name" small>
 										<template #label>{{ i18n.ts._profile.metadataLabel }}</template>
 									</MkInput>
@@ -71,6 +81,8 @@
 						</div>
 					</template>
 				</Sortable>
+
+				<MkInfo>{{ i18n.ts._profile.verifiedLinkDescription }}</MkInfo>
 			</div>
 		</MkFolder>
 		<template #caption>{{ i18n.ts._profile.metadataDescription }}</template>
@@ -88,32 +100,36 @@
 	<MkSelect v-model="reactionAcceptance">
 		<template #label>{{ i18n.ts.reactionAcceptance }}</template>
 		<option :value="null">{{ i18n.ts.all }}</option>
-		<option value="likeOnly">{{ i18n.ts.likeOnly }}</option>
 		<option value="likeOnlyForRemote">{{ i18n.ts.likeOnlyForRemote }}</option>
+		<option value="nonSensitiveOnly">{{ i18n.ts.nonSensitiveOnly }}</option>
+		<option value="nonSensitiveOnlyForLocalLikeOnlyForRemote">{{ i18n.ts.nonSensitiveOnlyForLocalLikeOnlyForRemote }}</option>
+		<option value="likeOnly">{{ i18n.ts.likeOnly }}</option>
 	</MkSelect>
-
-	<MkSwitch v-model="profile.showTimelineReplies">{{ i18n.ts.flagShowTimelineReplies }}<template #caption>{{ i18n.ts.flagShowTimelineRepliesDescription }} {{ i18n.ts.reflectMayTakeTime }}</template></MkSwitch>
 </div>
 </template>
 
 <script lang="ts" setup>
-import { computed, reactive, ref, watch, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
+import { computed, reactive, ref, watch, defineAsyncComponent } from 'vue';
 import MkButton from '@/components/MkButton.vue';
 import MkInput from '@/components/MkInput.vue';
-import MkTextarea from '@/components/MkTextarea.vue';
 import MkSwitch from '@/components/MkSwitch.vue';
 import MkSelect from '@/components/MkSelect.vue';
 import FormSplit from '@/components/form/split.vue';
 import MkFolder from '@/components/MkFolder.vue';
 import FormSlot from '@/components/form/slot.vue';
-import { selectFile } from '@/scripts/select-file';
-import * as os from '@/os';
-import { i18n } from '@/i18n';
-import { $i } from '@/account';
-import { langmap } from '@/scripts/langmap';
-import { definePageMetadata } from '@/scripts/page-metadata';
-import { claimAchievement } from '@/scripts/achievements';
-import { defaultStore } from '@/store';
+import { selectFile } from '@/scripts/select-file.js';
+import * as os from '@/os.js';
+import { i18n } from '@/i18n.js';
+import { signinRequired } from '@/account.js';
+import { langmap } from '@/scripts/langmap.js';
+import { definePageMetadata } from '@/scripts/page-metadata.js';
+import { claimAchievement } from '@/scripts/achievements.js';
+import { defaultStore } from '@/store.js';
+import { globalEvents } from '@/events.js';
+import MkInfo from '@/components/MkInfo.vue';
+import MkTextarea from '@/components/MkTextarea.vue';
+
+const $i = signinRequired();
 
 const Sortable = defineAsyncComponent(() => import('vuedraggable').then(x => x.default));
 
@@ -125,9 +141,8 @@ const profile = reactive({
 	location: $i.location,
 	birthday: $i.birthday,
 	lang: $i.lang,
-	isBot: $i.isBot,
-	isCat: $i.isCat,
-	showTimelineReplies: $i.showTimelineReplies,
+	isBot: $i.isBot ?? false,
+	isCat: $i.isCat ?? false,
 });
 
 watch(() => profile, () => {
@@ -136,7 +151,7 @@ watch(() => profile, () => {
 	deep: true,
 });
 
-const fields = ref($i?.fields.map(field => ({ id: Math.random().toString(), name: field.name, value: field.value })) ?? []);
+const fields = ref($i.fields.map(field => ({ id: Math.random().toString(), name: field.name, value: field.value })) ?? []);
 const fieldEditMode = ref(false);
 
 function addField() {
@@ -151,7 +166,7 @@ while (fields.value.length < 4) {
 	addField();
 }
 
-function deleteField(index: number) { 
+function deleteField(index: number) {
 	fields.value.splice(index, 1);
 }
 
@@ -159,6 +174,7 @@ function saveFields() {
 	os.apiWithDialog('i/update', {
 		fields: fields.value.filter(field => field.name !== '' && field.value !== '').map(field => ({ name: field.name, value: field.value })),
 	});
+	globalEvents.emit('requestClearPageCache');
 }
 
 function save() {
@@ -176,8 +192,8 @@ function save() {
 		lang: profile.lang || null,
 		isBot: !!profile.isBot,
 		isCat: !!profile.isCat,
-		showTimelineReplies: !!profile.showTimelineReplies,
 	});
+	globalEvents.emit('requestClearPageCache');
 	claimAchievement('profileFilled');
 	if (profile.name === 'syuilo' || profile.name === 'しゅいろ') {
 		claimAchievement('setNameToSyuilo');
@@ -193,7 +209,7 @@ function changeAvatar(ev) {
 
 		const { canceled } = await os.confirm({
 			type: 'question',
-			text: i18n.t('cropImageAsk'),
+			text: i18n.ts.cropImageAsk,
 			okText: i18n.ts.cropYes,
 			cancelText: i18n.ts.cropNo,
 		});
@@ -209,6 +225,7 @@ function changeAvatar(ev) {
 		});
 		$i.avatarId = i.avatarId;
 		$i.avatarUrl = i.avatarUrl;
+		globalEvents.emit('requestClearPageCache');
 		claimAchievement('profileFilled');
 	});
 }
@@ -219,7 +236,7 @@ function changeBanner(ev) {
 
 		const { canceled } = await os.confirm({
 			type: 'question',
-			text: i18n.t('cropImageAsk'),
+			text: i18n.ts.cropImageAsk,
 			okText: i18n.ts.cropYes,
 			cancelText: i18n.ts.cropNo,
 		});
@@ -235,49 +252,49 @@ function changeBanner(ev) {
 		});
 		$i.bannerId = i.bannerId;
 		$i.bannerUrl = i.bannerUrl;
+		globalEvents.emit('requestClearPageCache');
 	});
 }
 
-const headerActions = $computed(() => []);
+const headerActions = computed(() => []);
 
-const headerTabs = $computed(() => []);
+const headerTabs = computed(() => []);
 
-definePageMetadata({
+definePageMetadata(() => ({
 	title: i18n.ts.profile,
 	icon: 'ti ti-user',
-});
+}));
 </script>
 
-<style lang="scss" scoped>
-.llvierxe {
+<style lang="scss" module>
+.banner {
 	position: relative;
+	height: 130px;
 	background-size: cover;
 	background-position: center;
-	border: solid 1px var(--divider);
-	border-radius: 10px;
+	border-bottom: solid 1px var(--divider);
 	overflow: clip;
-
-	> .avatar {
-		display: inline-block;
-		text-align: center;
-		padding: 16px;
-
-		> .avatar {
-			display: inline-block;
-			width: 72px;
-			height: 72px;
-			margin: 0 auto 16px auto;
-		}
-	}
-
-	> .bannerEdit {
-		position: absolute;
-		top: 16px;
-		right: 16px;
-	}
 }
-</style>
-<style lang="scss" module>
+
+.avatarContainer {
+	margin-top: -50px;
+	padding-bottom: 16px;
+	text-align: center;
+}
+
+.avatar {
+	display: inline-block;
+	width: 72px;
+	height: 72px;
+	margin: 0 auto 16px auto;
+}
+
+.bannerEdit {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+}
+
 .metadataRoot {
 	container-type: inline-size;
 }

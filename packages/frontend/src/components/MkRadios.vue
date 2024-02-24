@@ -1,37 +1,35 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <script lang="ts">
-import { VNode, defineComponent, h } from 'vue';
+import { VNode, defineComponent, h, ref, watch } from 'vue';
 import MkRadio from './MkRadio.vue';
 
 export default defineComponent({
-	components: {
-		MkRadio,
-	},
 	props: {
 		modelValue: {
 			required: false,
 		},
 	},
-	data() {
-		return {
-			value: this.modelValue,
-		};
-	},
-	watch: {
-		value() {
-			this.$emit('update:modelValue', this.value);
-		},
-	},
-	render() {
-		console.log(this.$slots, this.$slots.label && this.$slots.label());
-		if (!this.$slots.default) return null;
-		let options = this.$slots.default();
-		const label = this.$slots.label && this.$slots.label();
-		const caption = this.$slots.caption && this.$slots.caption();
+	setup(props, context) {
+		const value = ref(props.modelValue);
+		watch(value, () => {
+			context.emit('update:modelValue', value.value);
+		});
+		watch(() => props.modelValue, v => {
+			value.value = v;
+		});
+		if (!context.slots.default) return null;
+		let options = context.slots.default();
+		const label = context.slots.label && context.slots.label();
+		const caption = context.slots.caption && context.slots.caption();
 
 		// なぜかFragmentになることがあるため
 		if (options.length === 1 && options[0].props == null) options = options[0].children as VNode[];
 
-		return h('div', {
+		return () => h('div', {
 			class: 'novjtcto',
 		}, [
 			...(label ? [h('div', {
@@ -40,10 +38,10 @@ export default defineComponent({
 			h('div', {
 				class: 'body',
 			}, options.map(option => h(MkRadio, {
-				key: option.key,
+				key: option.key as string,
 				value: option.props?.value,
-				modelValue: this.value,
-				'onUpdate:modelValue': value => this.value = value,
+				modelValue: value.value,
+				'onUpdate:modelValue': _v => value.value = _v,
 			}, () => option.children)),
 			),
 			...(caption ? [h('div', {

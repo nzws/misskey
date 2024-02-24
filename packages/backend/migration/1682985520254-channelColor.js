@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: syuilo and misskey-project
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 export class ChannelColor1682985520254 {
     name = 'ChannelColor1682985520254'
 

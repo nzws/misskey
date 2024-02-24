@@ -1,25 +1,32 @@
+/*
+ * SPDX-FileCopyrightText: syuilo and misskey-project
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 import { Injectable, Inject } from '@nestjs/common';
-import Ajv from 'ajv';
+import _Ajv from 'ajv';
 import { IdService } from '@/core/IdService.js';
 import { GlobalEventService } from '@/core/GlobalEventService.js';
 import Logger from '@/logger.js';
-import type { AntennasRepository } from '@/models/index.js';
+import type { AntennasRepository } from '@/models/_.js';
 import { DI } from '@/di-symbols.js';
 import { bindThis } from '@/decorators.js';
 import { QueueLoggerService } from '../QueueLoggerService.js';
 import { DBAntennaImportJobData } from '../types.js';
-import type Bull from 'bull';
+import type * as Bull from 'bullmq';
+
+const Ajv = _Ajv.default;
 
 const validate = new Ajv().compile({
 	type: 'object',
 	properties: {
 		name: { type: 'string', minLength: 1, maxLength: 100 },
 		src: { type: 'string', enum: ['home', 'all', 'users', 'list'] },
-		userListAccts: { 
-			type: 'array', 
+		userListAccts: {
+			type: 'array',
 			items: {
 				type: 'string',
-			}, 
+			},
 			nullable: true,
 		},
 		keywords: { type: 'array', items: {
@@ -36,6 +43,7 @@ const validate = new Ajv().compile({
 			type: 'string',
 		} },
 		caseSensitive: { type: 'boolean' },
+		localOnly: { type: 'boolean' },
 		withReplies: { type: 'boolean' },
 		withFile: { type: 'boolean' },
 		notify: { type: 'boolean' },
@@ -59,7 +67,7 @@ export class ImportAntennasProcessorService {
 	}
 
 	@bindThis
-	public async process(job: Bull.Job<DBAntennaImportJobData>, done: () => void): Promise<void> {
+	public async process(job: Bull.Job<DBAntennaImportJobData>): Promise<void> {
 		const now = new Date();
 		try {
 			for (const antenna of job.data.antenna) {
@@ -69,8 +77,7 @@ export class ImportAntennasProcessorService {
 					continue;
 				}
 				const result = await this.antennasRepository.insert({
-					id: this.idService.genId(),
-					createdAt: now,
+					id: this.idService.gen(now.getTime()),
 					lastUsedAt: now,
 					userId: job.data.user.id,
 					name: antenna.name,
@@ -80,6 +87,7 @@ export class ImportAntennasProcessorService {
 					excludeKeywords: antenna.excludeKeywords,
 					users: (antenna.src === 'list' && antenna.userListAccts !== null ? antenna.userListAccts : antenna.users).filter(Boolean),
 					caseSensitive: antenna.caseSensitive,
+					localOnly: antenna.localOnly,
 					withReplies: antenna.withReplies,
 					withFile: antenna.withFile,
 					notify: antenna.notify,
@@ -89,8 +97,6 @@ export class ImportAntennasProcessorService {
 			}
 		} catch (err: any) {
 			this.logger.error(err);
-		} finally {
-			done();
 		}
 	}
 }

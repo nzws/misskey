@@ -1,8 +1,13 @@
+/*
+ * SPDX-FileCopyrightText: syuilo and misskey-project
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 import { StoryObj } from '@storybook/vue3';
-import { rest } from 'msw';
-import { commonHandlers } from '../../.storybook/mocks';
-import { userDetailed } from '../../.storybook/fakes';
+import { HttpResponse, http } from 'msw';
+import { commonHandlers } from '../../.storybook/mocks.js';
+import { userDetailed } from '../../.storybook/fakes.js';
 import MkUserSetupDialog_Follow from './MkUserSetupDialog.Follow.vue';
 export const Default = {
 	render(args) {
@@ -26,24 +31,24 @@ export const Default = {
 		};
 	},
 	args: {
-		
+
 	},
 	parameters: {
 		layout: 'centered',
 		msw: {
 			handlers: [
 				...commonHandlers,
-				rest.post('/api/users', (req, res, ctx) => {
-					return res(ctx.json([
+				http.post('/api/users', () => {
+					return HttpResponse.json([
 						userDetailed('44'),
 						userDetailed('49'),
-					]));
+					]);
 				}),
-				rest.post('/api/pinned-users', (req, res, ctx) => {
-					return res(ctx.json([
+				http.post('/api/pinned-users', () => {
+					return HttpResponse.json([
 						userDetailed('44'),
 						userDetailed('49'),
-					]));
+					]);
 				}),
 			],
 		},

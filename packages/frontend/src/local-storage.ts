@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: syuilo and misskey-project
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 type Keys =
 	'v' |
 	'lastVersion' |
@@ -7,14 +12,15 @@ type Keys =
 	'latestDonationInfoShownAt' |
 	'neverShowDonationInfo' |
 	'neverShowLocalOnlyInfo' |
+	'modifiedVersionMustProminentlyOfferInAgplV3Section13Read' |
 	'lastUsed' |
 	'lang' |
 	'drafts' |
 	'hashtags' |
 	'wallpaper' |
 	'theme' |
-	'colorSchema' |
-	'useSystemFont' | 
+	'colorScheme' |
+	'useSystemFont' |
 	'fontSize' |
 	'ui' |
 	'ui_temp' |
@@ -30,10 +36,19 @@ type Keys =
 	`themes:${string}` |
 	`aiscript:${string}` |
 	'lastEmojisFetchedAt' | // DEPRECATED, stored in indexeddb (13.9.0~)
-	'emojis' // DEPRECATED, stored in indexeddb (13.9.0~);
+	'emojis' | // DEPRECATED, stored in indexeddb (13.9.0~);
+	`channelLastReadedAt:${string}`
 
 export const miLocalStorage = {
 	getItem: (key: Keys): string | null => window.localStorage.getItem(key),
 	setItem: (key: Keys, value: string): void => window.localStorage.setItem(key, value),
 	removeItem: (key: Keys): void => window.localStorage.removeItem(key),
+	getItemAsJson: (key: Keys): any | undefined => {
+		const item = miLocalStorage.getItem(key);
+		if (item === null) {
+			return undefined;
+		}
+		return JSON.parse(item);
+	},
+	setItemAsJson: (key: Keys, value: any): void => window.localStorage.setItem(key, JSON.stringify(value)),
 };

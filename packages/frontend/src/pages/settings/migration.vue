@@ -1,9 +1,11 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <template>
 <div class="_gaps_m">
-	<FormInfo warn>
-		{{ i18n.ts.thisIsExperimentalFeature }}
-	</FormInfo>
-	<MkFolder :default-open="true">
+	<MkFolder :defaultOpen="true">
 		<template #icon><i class="ti ti-plane-arrival"></i></template>
 		<template #label>{{ i18n.ts._accountMigration.moveFrom }}</template>
 		<template #caption>{{ i18n.ts._accountMigration.moveFromSub }}</template>
@@ -19,13 +21,13 @@
 			<div class="_gaps">
 				<MkInput v-for="(_, i) in accountAliases" v-model="accountAliases[i]">
 					<template #prefix><i class="ti ti-plane-arrival"></i></template>
-					<template #label>{{ i18n.t('_accountMigration.moveFromLabel', { n: i + 1 }) }}</template>
+					<template #label>{{ i18n.tsx._accountMigration.moveFromLabel({ n: i + 1 }) }}</template>
 				</MkInput>
 			</div>
 		</div>
 	</MkFolder>
 
-	<MkFolder :default-open="!!$i?.movedTo">
+	<MkFolder :defaultOpen="!!$i.movedTo">
 		<template #icon><i class="ti ti-plane-departure"></i></template>
 		<template #label>{{ i18n.ts._accountMigration.moveTo }}</template>
 
@@ -48,7 +50,7 @@
 				<FormInfo>{{ i18n.ts._accountMigration.postMigrationNote }}</FormInfo>
 				<FormInfo warn>{{ i18n.ts._accountMigration.movedAndCannotBeUndone }}</FormInfo>
 				<div>{{ i18n.ts._accountMigration.movedTo }}</div>
-				<MkUserInfo v-if="movedTo" :user="movedTo" class="_panel _shadow" />
+				<MkUserInfo v-if="movedTo" :user="movedTo" class="_panel _shadow"/>
 			</template>
 		</div>
 	</MkFolder>
@@ -57,33 +59,35 @@
 
 <script lang="ts" setup>
 import { ref } from 'vue';
+import * as Misskey from 'misskey-js';
 import FormInfo from '@/components/MkInfo.vue';
 import MkInput from '@/components/MkInput.vue';
 import MkButton from '@/components/MkButton.vue';
 import MkFolder from '@/components/MkFolder.vue';
 import MkUserInfo from '@/components/MkUserInfo.vue';
-import * as os from '@/os';
-import { i18n } from '@/i18n';
-import { definePageMetadata } from '@/scripts/page-metadata';
-import { $i } from '@/account';
-import { toString } from 'misskey-js/built/acct';
-import { UserDetailed } from 'misskey-js/built/entities';
-import { unisonReload } from '@/scripts/unison-reload';
+import * as os from '@/os.js';
+import { misskeyApi } from '@/scripts/misskey-api.js';
+import { i18n } from '@/i18n.js';
+import { definePageMetadata } from '@/scripts/page-metadata.js';
+import { signinRequired } from '@/account.js';
+import { unisonReload } from '@/scripts/unison-reload.js';
+
+const $i = signinRequired();
 
 const moveToAccount = ref('');
-const movedTo = ref<UserDetailed>();
+const movedTo = ref<Misskey.entities.UserDetailed>();
 const accountAliases = ref(['']);
 
 async function init() {
-	if ($i?.movedTo) {
-		movedTo.value = await os.api('users/show', { userId: $i.movedTo });
+	if ($i.movedTo) {
+		movedTo.value = await misskeyApi('users/show', { userId: $i.movedTo });
 	} else {
 		moveToAccount.value = '';
 	}
 
-	if ($i?.alsoKnownAs && $i.alsoKnownAs.length > 0) {
-		const alsoKnownAs = await os.api('users/show', { userIds: $i.alsoKnownAs });
-		accountAliases.value = (alsoKnownAs && alsoKnownAs.length > 0) ? alsoKnownAs.map(user => `@${toString(user)}`) : [''];
+	if ($i.alsoKnownAs && $i.alsoKnownAs.length > 0) {
+		const alsoKnownAs = await misskeyApi('users/show', { userIds: $i.alsoKnownAs });
+		accountAliases.value = (alsoKnownAs && alsoKnownAs.length > 0) ? alsoKnownAs.map(user => `@${Misskey.acct.toString(user)}`) : [''];
 	} else {
 		accountAliases.value = [''];
 	}
@@ -93,7 +97,7 @@ async function move(): Promise<void> {
 	const account = moveToAccount.value;
 	const confirm = await os.confirm({
 		type: 'warning',
-		text: i18n.t('_accountMigration.migrationConfirm', { account }),
+		text: i18n.tsx._accountMigration.migrationConfirm({ account }),
 	});
 	if (confirm.canceled) return;
 	await os.apiWithDialog('i/move', {
@@ -117,10 +121,10 @@ async function save(): Promise<void> {
 
 init();
 
-definePageMetadata({
+definePageMetadata(() => ({
 	title: i18n.ts.accountMigration,
 	icon: 'ti ti-plane',
-});
+}));
 </script>
 
 <style lang="scss">

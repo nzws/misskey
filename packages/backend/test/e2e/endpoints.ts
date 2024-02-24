@@ -1,32 +1,30 @@
+/*
+ * SPDX-FileCopyrightText: syuilo and misskey-project
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 process.env.NODE_ENV = 'test';
 
 import * as assert from 'assert';
 // node-fetch only supports it's own Blob yet
 // https://github.com/node-fetch/node-fetch/pull/1664
 import { Blob } from 'node-fetch';
-import { startServer, signup, post, api, uploadFile, simpleGet, initTestDb } from '../utils.js';
-import type { INestApplicationContext } from '@nestjs/common';
-import { User } from '@/models/index.js';
+import { MiUser } from '@/models/_.js';
+import { api, initTestDb, post, signup, simpleGet, uploadFile } from '../utils.js';
+import type * as misskey from 'misskey-js';
 
 describe('Endpoints', () => {
-	let app: INestApplicationContext;
-
-	let alice: any;
-	let bob: any;
-	let carol: any;
-	let dave: any;
+	let alice: misskey.entities.SignupResponse;
+	let bob: misskey.entities.SignupResponse;
+	let carol: misskey.entities.SignupResponse;
+	let dave: misskey.entities.SignupResponse;
 
 	beforeAll(async () => {
-		app = await startServer();
 		alice = await signup({ username: 'alice' });
 		bob = await signup({ username: 'bob' });
 		carol = await signup({ username: 'carol' });
 		dave = await signup({ username: 'dave' });
 	}, 1000 * 60 * 2);
-
-	afterAll(async () => {
-		await app.close();
-	});
 
 	describe('signup', () => {
 		test('不正なユーザー名でアカウントが作成できない', async () => {
@@ -292,7 +290,7 @@ describe('Endpoints', () => {
 			assert.strictEqual(res.status, 200);
 
 			const connection = await initTestDb(true);
-			const Users = connection.getRepository(User);
+			const Users = connection.getRepository(MiUser);
 			const newBob = await Users.findOneByOrFail({ id: bob.id });
 			assert.strictEqual(newBob.followersCount, 0);
 			assert.strictEqual(newBob.followingCount, 1);
@@ -354,7 +352,7 @@ describe('Endpoints', () => {
 			assert.strictEqual(res.status, 200);
 
 			const connection = await initTestDb(true);
-			const Users = connection.getRepository(User);
+			const Users = connection.getRepository(MiUser);
 			const newBob = await Users.findOneByOrFail({ id: bob.id });
 			assert.strictEqual(newBob.followersCount, 0);
 			assert.strictEqual(newBob.followingCount, 0);
@@ -699,6 +697,18 @@ describe('Endpoints', () => {
 			const res = await api('/drive/files/update', {
 				fileId: '000000000000000000000000',
 				name: 'いちごパスタ.png',
+			}, alice);
+
+			assert.strictEqual(res.status, 400);
+		});
+
+		test('不正なファイル名で怒られる', async () => {
+			const file = (await uploadFile(alice)).body;
+			const newName = '';
+
+			const res = await api('/drive/files/update', {
+				fileId: file.id,
+				name: newName,
 			}, alice);
 
 			assert.strictEqual(res.status, 400);

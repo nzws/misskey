@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <template>
 <div v-adaptive-bg class="_panel" style="position: relative;">
 	<div :class="$style.banner" :style="user.bannerUrl ? `background-image: url(${user.bannerUrl})` : ''"></div>
@@ -8,7 +13,7 @@
 	</div>
 	<div :class="$style.description">
 		<div v-if="user.description" :class="$style.mfm">
-			<Mfm :text="user.description" :author="user" :i="$i"/>
+			<Mfm :text="user.description" :author="user"/>
 		</div>
 		<span v-else style="opacity: 0.7;">{{ i18n.ts.noAccountDescription }}</span>
 	</div>
@@ -20,22 +25,21 @@
 </template>
 
 <script lang="ts" setup>
-import * as misskey from 'misskey-js';
+import * as Misskey from 'misskey-js';
 import { ref } from 'vue';
 import MkButton from '@/components/MkButton.vue';
-import { i18n } from '@/i18n';
-import { $i } from '@/account';
-import * as os from '@/os';
+import { i18n } from '@/i18n.js';
+import { misskeyApi } from '@/scripts/misskey-api.js';
 
 const props = defineProps<{
-	user: misskey.entities.UserDetailed;
+	user: Misskey.entities.UserDetailed;
 }>();
 
 const isFollowing = ref(false);
 
 async function follow() {
 	isFollowing.value = true;
-	os.api('following/create', {
+	misskeyApi('following/create', {
 		userId: props.user.id,
 	});
 }
@@ -90,7 +94,7 @@ async function follow() {
 .mfm {
 	display: -webkit-box;
 	-webkit-line-clamp: 5;
-	-webkit-box-orient: vertical;  
+	-webkit-box-orient: vertical;
 	overflow: hidden;
 }
 

@@ -1,32 +1,33 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <template>
-<XColumn :menu="menu" :column="column" :is-stacked="isStacked" @parent-focus="$event => emit('parent-focus', $event)">
+<XColumn :menu="menu" :column="column" :isStacked="isStacked" :refresher="() => timeline.reloadTimeline()">
 	<template #header>
 		<i class="ti ti-badge"></i><span style="margin-left: 8px;">{{ column.name }}</span>
 	</template>
 
-	<MkTimeline v-if="column.roleId" ref="timeline" src="role" :role="column.roleId" @after="() => emit('loaded')"/>
+	<MkTimeline v-if="column.roleId" ref="timeline" src="role" :role="column.roleId"/>
 </XColumn>
 </template>
 
 <script lang="ts" setup>
-import { onMounted } from 'vue';
+import { onMounted, shallowRef } from 'vue';
 import XColumn from './column.vue';
-import { updateColumn, Column } from './deck-store';
+import { updateColumn, Column } from './deck-store.js';
 import MkTimeline from '@/components/MkTimeline.vue';
-import * as os from '@/os';
-import { i18n } from '@/i18n';
+import * as os from '@/os.js';
+import { misskeyApi } from '@/scripts/misskey-api.js';
+import { i18n } from '@/i18n.js';
 
 const props = defineProps<{
 	column: Column;
 	isStacked: boolean;
 }>();
 
-const emit = defineEmits<{
-	(ev: 'loaded'): void;
-	(ev: 'parent-focus', direction: 'up' | 'down' | 'left' | 'right'): void;
-}>();
-
-let timeline = $shallowRef<InstanceType<typeof MkTimeline>>();
+const timeline = shallowRef<InstanceType<typeof MkTimeline>>();
 
 onMounted(() => {
 	if (props.column.roleId == null) {
@@ -35,7 +36,7 @@ onMounted(() => {
 });
 
 async function setRole() {
-	const roles = await os.api('roles/list');
+	const roles = (await misskeyApi('roles/list')).filter(x => x.isExplorable);
 	const { canceled, result: role } = await os.select({
 		title: i18n.ts.role,
 		items: roles.map(x => ({

@@ -1,9 +1,14 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <template>
 <MkModalWindow
 	ref="dialog"
 	:width="500"
 	:height="600"
-	@close="dialog.close()"
+	@close="dialog?.close()"
 	@closed="$emit('closed')"
 >
 	<template #header>{{ i18n.ts.signup }}</template>
@@ -11,16 +16,16 @@
 	<div style="overflow-x: clip;">
 		<Transition
 			mode="out-in"
-			:enter-active-class="$style.transition_x_enterActive"
-			:leave-active-class="$style.transition_x_leaveActive"
-			:enter-from-class="$style.transition_x_enterFrom"
-			:leave-to-class="$style.transition_x_leaveTo"
+			:enterActiveClass="$style.transition_x_enterActive"
+			:leaveActiveClass="$style.transition_x_leaveActive"
+			:enterFromClass="$style.transition_x_enterFrom"
+			:leaveToClass="$style.transition_x_leaveTo"
 		>
 			<template v-if="!isAcceptedServerRule">
-				<XServerRules @done="isAcceptedServerRule = true" @cancel="dialog.close()"/>
+				<XServerRules @done="isAcceptedServerRule = true" @cancel="dialog?.close()"/>
 			</template>
 			<template v-else>
-				<XSignup :auto-set="autoSet" @signup="onSignup" @signup-email-pending="onSignupEmailPending"/>
+				<XSignup :autoSet="autoSet" @signup="onSignup" @signupEmailPending="onSignupEmailPending"/>
 			</template>
 		</Transition>
 	</div>
@@ -28,13 +33,12 @@
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
-import { $ref } from 'vue/macros';
+import { shallowRef, ref } from 'vue';
+import * as Misskey from 'misskey-js';
 import XSignup from '@/components/MkSignupDialog.form.vue';
 import XServerRules from '@/components/MkSignupDialog.rules.vue';
 import MkModalWindow from '@/components/MkModalWindow.vue';
-import { i18n } from '@/i18n';
-import { instance } from '@/instance';
+import { i18n } from '@/i18n.js';
 
 const props = withDefaults(defineProps<{
 	autoSet?: boolean;
@@ -43,21 +47,21 @@ const props = withDefaults(defineProps<{
 });
 
 const emit = defineEmits<{
-	(ev: 'done'): void;
+	(ev: 'done', res: Misskey.entities.SigninResponse): void;
 	(ev: 'closed'): void;
 }>();
 
-const dialog = $shallowRef<InstanceType<typeof MkModalWindow>>();
+const dialog = shallowRef<InstanceType<typeof MkModalWindow>>();
 
-const isAcceptedServerRule = $ref(false);
+const isAcceptedServerRule = ref(false);
 
-function onSignup(res) {
+function onSignup(res: Misskey.entities.SigninResponse) {
 	emit('done', res);
-	dialog.close();
+	dialog.value?.close();
 }
 
 function onSignupEmailPending() {
-	dialog.close();
+	dialog.value?.close();
 }
 </script>
 

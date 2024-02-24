@@ -1,5 +1,5 @@
 import WS from 'jest-websocket-mock';
-import Stream from '../src/streaming';
+import Stream from '../src/streaming.js';
 
 describe('Streaming', () => {
 	test('useChannel', async () => {
@@ -131,7 +131,7 @@ describe('Streaming', () => {
 		main.on('meUpdated', payload => {
 			mainChannelReceived.push(payload);
 		});
-		
+
 		const ws = await server.connected;
 		expect(new URLSearchParams(new URL(ws.url).search).get('i')).toEqual('TOKEN');
 

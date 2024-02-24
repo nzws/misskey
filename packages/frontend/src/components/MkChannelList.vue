@@ -1,8 +1,13 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <template>
 <MkPagination :pagination="pagination">
 	<template #empty>
 		<div class="_fullinfo">
-			<img src="/client-assets/custom/osage_info.png" class="_ghost"/>
+			<img :src="infoImageUrl" class="_ghost"/>
 			<div>{{ i18n.ts.notFound }}</div>
 		</div>
 	</template>
@@ -16,7 +21,8 @@
 <script lang="ts" setup>
 import MkChannelPreview from '@/components/MkChannelPreview.vue';
 import MkPagination, { Paging } from '@/components/MkPagination.vue';
-import { i18n } from '@/i18n';
+import { i18n } from '@/i18n.js';
+import { infoImageUrl } from '@/instance.js';
 
 const props = withDefaults(defineProps<{
 	pagination: Paging;
@@ -26,6 +32,3 @@ const props = withDefaults(defineProps<{
 	extractor: (item) => item,
 });
 </script>
-
-<style lang="scss" scoped>
-</style>

@@ -1,8 +1,13 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <template>
 <component :is="link ? MkA : 'span'" v-user-preview="preview ? user.id : undefined" v-bind="bound" class="_noSelect" :class="[$style.root, { [$style.animation]: animation, [$style.cat]: user.isCat, [$style.square]: squareAvatars }]" :style="{ color }" :title="acct(user)" @click="onClick">
-	<img :class="$style.inner" :src="url" decoding="async"/>
+	<MkImgWithBlurhash :class="$style.inner" :src="url" :hash="user.avatarBlurhash" :cover="true" :onlyAvgColor="true"/>
 	<MkUserOnlineIndicator v-if="indicator" :class="$style.indicator" :user="user"/>
-	<div v-if="user.isCat" :class="[$style.ears, { [$style.mask]: useBlurEffect }]">
+	<div v-if="user.isCat" :class="[$style.ears]">
 		<div :class="$style.earLeft">
 			<div v-if="false" :class="$style.layer">
 				<div :class="$style.plot" :style="{ backgroundImage: `url(${JSON.stringify(url)})` }"/>
@@ -18,57 +23,101 @@
 			</div>
 		</div>
 	</div>
+	<template v-if="showDecoration">
+		<img
+			v-for="decoration in decorations ?? user.avatarDecorations"
+			:class="[$style.decoration]"
+			:src="getDecorationUrl(decoration)"
+			:style="{
+				rotate: getDecorationAngle(decoration),
+				scale: getDecorationScale(decoration),
+				translate: getDecorationOffset(decoration),
+			}"
+			alt=""
+		>
+	</template>
 </component>
 </template>
 
 <script lang="ts" setup>
-import { watch } from 'vue';
-import * as misskey from 'misskey-js';
+import { watch, ref, computed } from 'vue';
+import * as Misskey from 'misskey-js';
+import MkImgWithBlurhash from '../MkImgWithBlurhash.vue';
 import MkA from './MkA.vue';
-import { getStaticImageUrl } from '@/scripts/media-proxy';
-import { extractAvgColorFromBlurhash } from '@/scripts/extract-avg-color-from-blurhash';
-import { acct, userPage } from '@/filters/user';
+import { getStaticImageUrl } from '@/scripts/media-proxy.js';
+import { extractAvgColorFromBlurhash } from '@/scripts/extract-avg-color-from-blurhash.js';
+import { acct, userPage } from '@/filters/user.js';
 import MkUserOnlineIndicator from '@/components/MkUserOnlineIndicator.vue';
-import { defaultStore } from '@/store';
+import { defaultStore } from '@/store.js';
 
-const animation = $ref(defaultStore.state.animation);
-const squareAvatars = $ref(defaultStore.state.squareAvatars);
-const useBlurEffect = $ref(defaultStore.state.useBlurEffect);
+const animation = ref(defaultStore.state.animation);
+const squareAvatars = ref(defaultStore.state.squareAvatars);
+const useBlurEffect = ref(defaultStore.state.useBlurEffect);
 
 const props = withDefaults(defineProps<{
-	user: misskey.entities.User;
+	user: Misskey.entities.User;
 	target?: string | null;
 	link?: boolean;
 	preview?: boolean;
 	indicator?: boolean;
+	decorations?: Omit<Misskey.entities.UserDetailed['avatarDecorations'][number], 'id'>[];
+	forceShowDecoration?: boolean;
 }>(), {
 	target: null,
 	link: false,
 	preview: false,
 	indicator: false,
+	decorations: undefined,
+	forceShowDecoration: false,
 });
 
 const emit = defineEmits<{
 	(ev: 'click', v: MouseEvent): void;
 }>();
 
-const bound = $computed(() => props.link
+const showDecoration = props.forceShowDecoration || defaultStore.state.showAvatarDecorations;
+
+const bound = computed(() => props.link
 	? { to: userPage(props.user), target: props.target }
 	: {});
 
-const url = $computed(() => defaultStore.state.disableShowingAnimatedImages
-	? getStaticImageUrl(props.user.avatarUrl)
-	: props.user.avatarUrl);
+const url = computed(() => {
+	if (props.user.avatarUrl == null) return null;
+	if (defaultStore.state.disableShowingAnimatedImages || defaultStore.state.dataSaver.avatar) return getStaticImageUrl(props.user.avatarUrl);
+	return props.user.avatarUrl;
+});
 
 function onClick(ev: MouseEvent): void {
 	if (props.link) return;
 	emit('click', ev);
 }
 
-let color = $ref<string | undefined>();
+function getDecorationUrl(decoration: Omit<Misskey.entities.UserDetailed['avatarDecorations'][number], 'id'>) {
+	if (defaultStore.state.disableShowingAnimatedImages || defaultStore.state.dataSaver.avatar) return getStaticImageUrl(decoration.url);
+	return decoration.url;
+}
+
+function getDecorationAngle(decoration: Omit<Misskey.entities.UserDetailed['avatarDecorations'][number], 'id'>) {
+	const angle = decoration.angle ?? 0;
+	return angle === 0 ? undefined : `${angle * 360}deg`;
+}
+
+function getDecorationScale(decoration: Omit<Misskey.entities.UserDetailed['avatarDecorations'][number], 'id'>) {
+	const scaleX = decoration.flipH ? -1 : 1;
+	return scaleX === 1 ? undefined : `${scaleX} 1`;
+}
+
+function getDecorationOffset(decoration: Omit<Misskey.entities.UserDetailed['avatarDecorations'][number], 'id'>) {
+	const offsetX = decoration.offsetX ?? 0;
+	const offsetY = decoration.offsetY ?? 0;
+	return offsetX === 0 && offsetY === 0 ? undefined : `${offsetX * 100}% ${offsetY * 100}%`;
+}
+
+const color = ref<string | undefined>();
 
 watch(() => props.user.avatarBlurhash, () => {
-	color = extractAvgColorFromBlurhash(props.user.avatarBlurhash);
+	if (props.user.avatarBlurhash == null) return;
+	color.value = extractAvgColorFromBlurhash(props.user.avatarBlurhash);
 }, {
 	immediate: true,
 });
@@ -128,7 +177,7 @@ watch(() => props.user.avatarBlurhash, () => {
 
 .indicator {
 	position: absolute;
-	z-index: 1;
+	z-index: 2;
 	bottom: 0;
 	left: 0;
 	width: 20%;
@@ -153,24 +202,6 @@ watch(() => props.user.avatarBlurhash, () => {
 		height: 100%;
 		padding: 50%;
 		pointer-events: none;
-
-		&.mask {
-			-webkit-mask:
-				url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><filter id="a"><feGaussianBlur in="SourceGraphic" stdDeviation="1"/></filter><circle cx="16" cy="16" r="15" filter="url(%23a)"/></svg>') center / 50% 50%,
-				linear-gradient(#fff, #fff);
-			-webkit-mask-composite: destination-out, source-over;
-			mask:
-				url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><filter id="a"><feGaussianBlur in="SourceGraphic" stdDeviation="1"/></filter><circle cx="16" cy="16" r="15" filter="url(%23a)"/></svg>') exclude center / 50% 50%,
-				linear-gradient(#fff, #fff); // polyfill of `image(#fff)`
-
-			> .earLeft {
-				animation: eartightleft 6s infinite;
-			}
-
-			> .earRight {
-				animation: eartightright 6s infinite;
-			}
-		}
 
 		> .earLeft,
 		> .earRight {
@@ -289,5 +320,14 @@ watch(() => props.user.avatarBlurhash, () => {
 			}
 		}
 	}
+}
+
+.decoration {
+	position: absolute;
+	z-index: 1;
+	top: -50%;
+	left: -50%;
+	width: 200%;
+	pointer-events: none;
 }
 </style>

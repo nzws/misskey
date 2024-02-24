@@ -1,31 +1,37 @@
+/*
+ * SPDX-FileCopyrightText: syuilo and misskey-project
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+import { INestApplicationContext } from '@nestjs/common';
+
 process.env.NODE_ENV = 'test';
 
 import * as assert from 'assert';
-import rndstr from 'rndstr';
 import { loadConfig } from '@/config.js';
-import { User, UsersRepository } from '@/models/index.js';
+import { MiUser, UsersRepository } from '@/models/_.js';
+import { secureRndstr } from '@/misc/secure-rndstr.js';
 import { jobQueue } from '@/boot/common.js';
-import { uploadFile, signup, startServer, initTestDb, api, sleep, successfulApiCall } from '../utils.js';
-import type { INestApplicationContext } from '@nestjs/common';
+import { api, initTestDb, signup, sleep, successfulApiCall, uploadFile } from '../utils.js';
+import type * as misskey from 'misskey-js';
 
 describe('Account Move', () => {
-	let app: INestApplicationContext;
 	let jq: INestApplicationContext;
 	let url: URL;
 
 	let root: any;
-	let alice: any;
-	let bob: any;
-	let carol: any;
-	let dave: any;
-	let eve: any;
-	let frank: any;
+	let alice: misskey.entities.SignupResponse;
+	let bob: misskey.entities.SignupResponse;
+	let carol: misskey.entities.SignupResponse;
+	let dave: misskey.entities.SignupResponse;
+	let eve: misskey.entities.SignupResponse;
+	let frank: misskey.entities.SignupResponse;
 
 	let Users: UsersRepository;
 
 	beforeAll(async () => {
-		app = await startServer();
 		jq = await jobQueue();
+
 		const config = loadConfig();
 		url = new URL(config.url);
 		const connection = await initTestDb(false);
@@ -36,11 +42,11 @@ describe('Account Move', () => {
 		dave = await signup({ username: 'dave' });
 		eve = await signup({ username: 'eve' });
 		frank = await signup({ username: 'frank' });
-		Users = connection.getRepository(User);
+		Users = connection.getRepository(MiUser);
 	}, 1000 * 60 * 2);
 
 	afterAll(async () => {
-		await Promise.all([app.close(), jq.close()]);
+		await jq.close();
 	});
 
 	describe('Create Alias', () => {
@@ -162,7 +168,7 @@ describe('Account Move', () => {
 				alsoKnownAs: [`@alice@${url.hostname}`],
 			}, root);
 			const listRoot = await api('/users/lists/create', {
-				name: rndstr('0-9a-z', 8),
+				name: secureRndstr(8),
 			}, root);
 			await api('/users/lists/push', {
 				listId: listRoot.body.id,
@@ -176,12 +182,13 @@ describe('Account Move', () => {
 				userId: eve.id,
 			}, alice);
 			const antenna = await api('/antennas/create', {
-				name: rndstr('0-9a-z', 8),
+				name: secureRndstr(8),
 				src: 'home',
-				keywords: [rndstr('0-9a-z', 8)],
+				keywords: [secureRndstr(8)],
 				excludeKeywords: [],
 				users: [],
 				caseSensitive: false,
+				localOnly: false,
 				withReplies: false,
 				withFile: false,
 				notify: false,
@@ -210,7 +217,7 @@ describe('Account Move', () => {
 				userId: dave.id,
 			}, eve);
 			const listEve = await api('/users/lists/create', {
-				name: rndstr('0-9a-z', 8),
+				name: secureRndstr(8),
 			}, eve);
 			await api('/users/lists/push', {
 				listId: listEve.body.id,
@@ -419,12 +426,13 @@ describe('Account Move', () => {
 		test('Prohibit access after moving: /antennas/update', async () => {
 			const res = await api('/antennas/update', {
 				antennaId,
-				name: rndstr('0-9a-z', 8),
+				name: secureRndstr(8),
 				src: 'users',
-				keywords: [rndstr('0-9a-z', 8)],
+				keywords: [secureRndstr(8)],
 				excludeKeywords: [],
 				users: [eve.id],
 				caseSensitive: false,
+				localOnly: false,
 				withReplies: false,
 				withFile: false,
 				notify: false,

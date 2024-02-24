@@ -2,12 +2,11 @@ import path from 'path';
 import pluginReplace from '@rollup/plugin-replace';
 import pluginVue from '@vitejs/plugin-vue';
 import { type UserConfig, defineConfig } from 'vite';
-// @ts-expect-error https://github.com/sxzz/unplugin-vue-macros/issues/257#issuecomment-1410752890
-import ReactivityTransform from '@vue-macros/reactivity-transform/vite';
 
-import locales from '../../locales';
+import locales from '../../locales/index.js';
 import meta from '../../package.json';
-import pluginJson5 from './vite.json5';
+import pluginUnwindCssModuleClassName from './lib/rollup-plugin-unwind-css-module-class-name.js';
+import pluginJson5 from './vite.json5.js';
 
 const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.json', '.json5', '.svg', '.sass', '.scss', '.css', '.vue'];
 
@@ -27,6 +26,7 @@ const hash = (str: string, seed = 0): number => {
 };
 
 const BASE62_DIGITS = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
 function toBase62(n: number): string {
 	if (n === 0) {
 		return '0';
@@ -49,10 +49,8 @@ export function getConfig(): UserConfig {
 		},
 
 		plugins: [
-			pluginVue({
-				reactivityTransform: true,
-			}),
-			ReactivityTransform(),
+			pluginVue(),
+			pluginUnwindCssModuleClassName(),
 			pluginJson5(),
 			...process.env.NODE_ENV === 'production'
 				? [
@@ -103,27 +101,24 @@ export function getConfig(): UserConfig {
 			__VUE_PROD_DEVTOOLS__: false,
 		},
 
-		// https://vitejs.dev/guide/dep-pre-bundling.html#monorepos-and-linked-dependencies
-		optimizeDeps: {
-			include: ['misskey-js'],
-		},
-
 		build: {
 			target: [
-				'chrome108',
-				'firefox109',
+				'chrome116',
+				'firefox116',
 				'safari16',
 			],
 			manifest: 'manifest.json',
 			rollupOptions: {
 				input: {
-					app: './src/init.ts',
+					app: './src/_boot_.ts',
 				},
 				output: {
 					manualChunks: {
 						vue: ['vue'],
 						photoswipe: ['photoswipe', 'photoswipe/lightbox', 'photoswipe/style.css'],
 					},
+					chunkFileNames: process.env.NODE_ENV === 'production' ? '[hash:8].js' : '[name]-[hash:8].js',
+					assetFileNames: process.env.NODE_ENV === 'production' ? '[hash:8][extname]' : '[name]-[hash:8][extname]',
 				},
 			},
 			cssCodeSplit: true,
@@ -135,18 +130,27 @@ export function getConfig(): UserConfig {
 
 			// https://vitejs.dev/guide/dep-pre-bundling.html#monorepos-and-linked-dependencies
 			commonjsOptions: {
-				include: [/misskey-js/, /node_modules/],
+				include: [/misskey-js/, /misskey-reversi/, /misskey-bubble-game/, /node_modules/],
 			},
+		},
+
+		worker: {
+			format: 'es',
 		},
 
 		test: {
 			environment: 'happy-dom',
 			deps: {
-				inline: [
-					// XXX: misskey-dev/browser-image-resizer has no "type": "module"
-					'browser-image-resizer',
-				],
+				optimizer: {
+					web: {
+						include: [
+							// XXX: misskey-dev/browser-image-resizer has no "type": "module"
+							'browser-image-resizer',
+						],
+					},
+				},
 			},
+			includeSource: ['src/**/*.ts'],
 		},
 	};
 }

@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <template>
 <div class="npcljfve" :class="{ iconOnly }">
 	<button v-click-anime class="item _button account" @click="openAccountMenu">
@@ -9,25 +14,28 @@
 		</MkButton>
 	</div>
 	<div class="divider"></div>
-	<MkA v-click-anime class="item index" active-class="active" to="/" exact>
+	<MkA v-click-anime class="item index" activeClass="active" to="/" exact>
 		<i class="ti ti-home ti-fw"></i><span class="text">{{ i18n.ts.timeline }}</span>
 	</MkA>
 	<template v-for="item in menu">
 		<div v-if="item === '-'" class="divider"></div>
-		<component :is="navbarItemDef[item].to ? 'MkA' : 'button'" v-else-if="navbarItemDef[item] && (navbarItemDef[item].show !== false)" v-click-anime class="item _button" :class="item" active-class="active" :to="navbarItemDef[item].to" v-on="navbarItemDef[item].action ? { click: navbarItemDef[item].action } : {}">
+		<component :is="navbarItemDef[item].to ? 'MkA' : 'button'" v-else-if="navbarItemDef[item] && (navbarItemDef[item].show !== false)" v-click-anime class="item _button" :class="item" activeClass="active" :to="navbarItemDef[item].to" v-on="navbarItemDef[item].action ? { click: navbarItemDef[item].action } : {}">
 			<i class="ti-fw" :class="navbarItemDef[item].icon"></i><span class="text">{{ navbarItemDef[item].title }}</span>
-			<span v-if="navbarItemDef[item].indicated" class="indicator"><i class="_indicatorCircle"></i></span>
+			<span v-if="navbarItemDef[item].indicated" class="indicator">
+				<span v-if="navbarItemDef[item].indicateValue" class="_indicateCounter itemIndicateValueIcon">{{ navbarItemDef[item].indicateValue }}</span>
+				<i v-else class="_indicatorCircle"></i>
+			</span>
 		</component>
 	</template>
 	<div class="divider"></div>
-	<MkA v-if="$i.isAdmin || $i.isModerator" v-click-anime class="item" active-class="active" to="/admin" :behavior="settingsWindowed ? 'modalWindow' : null">
+	<MkA v-if="$i.isAdmin || $i.isModerator" v-click-anime class="item" activeClass="active" to="/admin" :behavior="settingsWindowed ? 'window' : null">
 		<i class="ti ti-dashboard ti-fw"></i><span class="text">{{ i18n.ts.controlPanel }}</span>
 	</MkA>
 	<button v-click-anime class="item _button" @click="more">
 		<i class="ti ti-dots ti-fw"></i><span class="text">{{ i18n.ts.more }}</span>
 		<span v-if="otherNavItemIndicated" class="indicator"><i class="_indicatorCircle"></i></span>
 	</button>
-	<MkA v-click-anime class="item" active-class="active" to="/settings" :behavior="settingsWindowed ? 'modalWindow' : null">
+	<MkA v-click-anime class="item" activeClass="active" to="/settings" :behavior="settingsWindowed ? 'window' : null">
 		<i class="ti ti-settings ti-fw"></i><span class="text">{{ i18n.ts.settings }}</span>
 	</MkA>
 	<div class="divider"></div>
@@ -41,40 +49,40 @@
 </template>
 
 <script lang="ts" setup>
-import { defineAsyncComponent, onMounted, computed, watch, nextTick } from 'vue';
-import { openInstanceMenu } from './_common_/common';
-// import { host } from '@/config';
-import * as os from '@/os';
-import { navbarItemDef } from '@/navbar';
-import { openAccountMenu as openAccountMenu_, $i } from '@/account';
+import { defineAsyncComponent, computed, watch, ref, shallowRef } from 'vue';
+import { openInstanceMenu } from './_common_/common.js';
+// import { host } from '@/config.js';
+import * as os from '@/os.js';
+import { navbarItemDef } from '@/navbar.js';
+import { openAccountMenu as openAccountMenu_, $i } from '@/account.js';
 import MkButton from '@/components/MkButton.vue';
-// import { StickySidebar } from '@/scripts/sticky-sidebar';
-// import { mainRouter } from '@/router';
+// import { StickySidebar } from '@/scripts/sticky-sidebar.js';
+// import { mainRouter } from '@/router.js';
 //import MisskeyLogo from '@assets/client/misskey.svg';
-import { defaultStore } from '@/store';
-import { instance } from '@/instance';
-import { i18n } from '@/i18n';
+import { defaultStore } from '@/store.js';
+import { instance } from '@/instance.js';
+import { i18n } from '@/i18n.js';
 
 const WINDOW_THRESHOLD = 1400;
 
-const menu = $ref(defaultStore.state.menu);
+const menu = ref(defaultStore.state.menu);
 const menuDisplay = computed(defaultStore.makeGetterSetter('menuDisplay'));
 const otherNavItemIndicated = computed<boolean>(() => {
 	for (const def in navbarItemDef) {
-		if (menu.includes(def)) continue;
+		if (menu.value.includes(def)) continue;
 		if (navbarItemDef[def].indicated) return true;
 	}
 	return false;
 });
-let el = $shallowRef<HTMLElement>();
+const el = shallowRef<HTMLElement>();
 // let accounts = $ref([]);
 // let connection = $ref(null);
-let iconOnly = $ref(false);
-let settingsWindowed = $ref(false);
+const iconOnly = ref(false);
+const settingsWindowed = ref(false);
 
 function calcViewState() {
-	iconOnly = (window.innerWidth <= WINDOW_THRESHOLD) || (menuDisplay.value === 'sideIcon');
-	settingsWindowed = (window.innerWidth > WINDOW_THRESHOLD);
+	iconOnly.value = (window.innerWidth <= WINDOW_THRESHOLD) || (menuDisplay.value === 'sideIcon');
+	settingsWindowed.value = (window.innerWidth > WINDOW_THRESHOLD);
 }
 
 function more(ev: MouseEvent) {
@@ -212,7 +220,13 @@ watch(defaultStore.reactiveState.menuDisplay, () => {
 			left: 0;
 			color: var(--navIndicator);
 			font-size: 8px;
-			animation: blink 1s infinite;
+			animation: global-blink 1s infinite;
+
+			&:has(.itemIndicateValueIcon) {
+				animation: none;
+				left: auto;
+				right: 20px;
+			}
 		}
 
 		&:hover {

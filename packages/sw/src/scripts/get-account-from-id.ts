@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: syuilo and misskey-project
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 import { get } from 'idb-keyval';
 
 export async function getAccountFromId(id: string): Promise<{ token: string; id: string } | void> {

@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <template>
 <div ref="rootEl" :class="$style.root" role="group" :aria-expanded="opened">
 	<MkStickyContainer>
@@ -5,8 +10,8 @@
 			<div :class="[$style.header, { [$style.opened]: opened }]" class="_button" role="button" data-cy-folder-header @click="toggle">
 				<div :class="$style.headerIcon"><slot name="icon"></slot></div>
 				<div :class="$style.headerText">
-					<div :class="$style.headerTextMain">
-						<slot name="label"></slot>
+					<div>
+						<MkCondensedLine :minScale="2 / 3"><slot name="label"></slot></MkCondensedLine>
 					</div>
 					<div :class="$style.headerTextSub">
 						<slot name="caption"></slot>
@@ -20,20 +25,20 @@
 			</div>
 		</template>
 
-		<div v-if="openedAtLeastOnce" :class="[$style.body, { [$style.bgSame]: bgSame }]" :style="{ maxHeight: maxHeight ? `${maxHeight}px` : null, overflow: maxHeight ? `auto` : null }" :aria-hidden="!opened">
+		<div v-if="openedAtLeastOnce" :class="[$style.body, { [$style.bgSame]: bgSame }]" :style="{ maxHeight: maxHeight ? `${maxHeight}px` : undefined, overflow: maxHeight ? `auto` : undefined }" :aria-hidden="!opened">
 			<Transition
-				:enter-active-class="defaultStore.state.animation ? $style.transition_toggle_enterActive : ''"
-				:leave-active-class="defaultStore.state.animation ? $style.transition_toggle_leaveActive : ''"
-				:enter-from-class="defaultStore.state.animation ? $style.transition_toggle_enterFrom : ''"
-				:leave-to-class="defaultStore.state.animation ? $style.transition_toggle_leaveTo : ''"
+				:enterActiveClass="defaultStore.state.animation ? $style.transition_toggle_enterActive : ''"
+				:leaveActiveClass="defaultStore.state.animation ? $style.transition_toggle_leaveActive : ''"
+				:enterFromClass="defaultStore.state.animation ? $style.transition_toggle_enterFrom : ''"
+				:leaveToClass="defaultStore.state.animation ? $style.transition_toggle_leaveTo : ''"
 				@enter="enter"
-				@after-enter="afterEnter"
+				@afterEnter="afterEnter"
 				@leave="leave"
-				@after-leave="afterLeave"
+				@afterLeave="afterLeave"
 			>
 				<KeepAlive>
 					<div v-show="opened">
-						<MkSpacer :margin-min="14" :margin-max="22">
+						<MkSpacer :marginMin="14" :marginMax="22">
 							<slot></slot>
 						</MkSpacer>
 					</div>
@@ -45,8 +50,8 @@
 </template>
 
 <script lang="ts" setup>
-import { nextTick, onMounted } from 'vue';
-import { defaultStore } from '@/store';
+import { nextTick, onMounted, shallowRef, ref } from 'vue';
+import { defaultStore } from '@/store.js';
 
 const props = withDefaults(defineProps<{
 	defaultOpen?: boolean;
@@ -65,10 +70,10 @@ const getBgColor = (el: HTMLElement) => {
 	}
 };
 
-let rootEl = $shallowRef<HTMLElement>();
-let bgSame = $ref(false);
-let opened = $ref(props.defaultOpen);
-let openedAtLeastOnce = $ref(props.defaultOpen);
+const rootEl = shallowRef<HTMLElement>();
+const bgSame = ref(false);
+const opened = ref(props.defaultOpen);
+const openedAtLeastOnce = ref(props.defaultOpen);
 
 function enter(el) {
 	const elementHeight = el.getBoundingClientRect().height;
@@ -93,20 +98,20 @@ function afterLeave(el) {
 }
 
 function toggle() {
-	if (!opened) {
-		openedAtLeastOnce = true;
+	if (!opened.value) {
+		openedAtLeastOnce.value = true;
 	}
 
 	nextTick(() => {
-		opened = !opened;
+		opened.value = !opened.value;
 	});
 }
 
 onMounted(() => {
 	const computedStyle = getComputedStyle(document.documentElement);
-	const parentBg = getBgColor(rootEl.parentElement);
+	const parentBg = getBgColor(rootEl.value!.parentElement!);
 	const myBg = computedStyle.getPropertyValue('--panel');
-	bgSame = parentBg === myBg;
+	bgSame.value = parentBg === myBg;
 });
 </script>
 
@@ -183,10 +188,6 @@ onMounted(() => {
 	text-overflow: ellipsis;
 	overflow: hidden;
 	padding-right: 12px;
-}
-
-.headerTextMain {
-
 }
 
 .headerTextSub {

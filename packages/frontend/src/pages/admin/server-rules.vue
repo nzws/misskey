@@ -1,14 +1,19 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <template>
 <div>
 	<MkStickyContainer>
 		<template #header><XHeader :tabs="headerTabs"/></template>
-		<MkSpacer :content-max="700" :margin-min="16" :margin-max="32">
+		<MkSpacer :contentMax="700" :marginMin="16" :marginMax="32">
 			<div class="_gaps_m">
 				<div>{{ i18n.ts._serverRules.description }}</div>
 				<Sortable
 					v-model="serverRules"
 					class="_gaps_m"
-					:item-key="(_, i) => i"
+					:itemKey="(_, i) => i"
 					:animation="150"
 					:handle="'.' + $style.itemHandle"
 					@start="e => e.item.classList.add('active')"
@@ -27,7 +32,7 @@
 				</Sortable>
 				<div :class="$style.commands">
 					<MkButton rounded @click="serverRules.push('')"><i class="ti ti-plus"></i> {{ i18n.ts.add }}</MkButton>
-					<MkButton primary rounded :class="$style.buttonSave" @click="save"><i class="ti ti-check"></i> {{ i18n.ts.save }}</MkButton>
+					<MkButton primary rounded @click="save"><i class="ti ti-check"></i> {{ i18n.ts.save }}</MkButton>
 				</div>
 			</div>
 		</MkSpacer>
@@ -36,36 +41,36 @@
 </template>
 
 <script lang="ts" setup>
-import { defineAsyncComponent } from 'vue';
+import { defineAsyncComponent, ref, computed } from 'vue';
 import XHeader from './_header_.vue';
-import * as os from '@/os';
-import { fetchInstance, instance } from '@/instance';
-import { i18n } from '@/i18n';
-import { definePageMetadata } from '@/scripts/page-metadata';
+import * as os from '@/os.js';
+import { fetchInstance, instance } from '@/instance.js';
+import { i18n } from '@/i18n.js';
+import { definePageMetadata } from '@/scripts/page-metadata.js';
 import MkButton from '@/components/MkButton.vue';
 import MkInput from '@/components/MkInput.vue';
 
 const Sortable = defineAsyncComponent(() => import('vuedraggable').then(x => x.default));
 
-let serverRules: string[] = $ref(instance.serverRules);
+const serverRules = ref<string[]>(instance.serverRules);
 
 const save = async () => {
 	await os.apiWithDialog('admin/update-meta', {
-		serverRules,
+		serverRules: serverRules.value,
 	});
 	fetchInstance();
 };
 
 const remove = (index: number): void => {
-	serverRules.splice(index, 1);
+	serverRules.value.splice(index, 1);
 };
 
-const headerTabs = $computed(() => []);
+const headerTabs = computed(() => []);
 
-definePageMetadata({
+definePageMetadata(() => ({
 	title: i18n.ts.serverRules,
 	icon: 'ti ti-checkbox',
-});
+}));
 </script>
 
 <style lang="scss" module>

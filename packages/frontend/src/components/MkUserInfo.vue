@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <template>
 <div class="_panel" :class="$style.root">
 	<div :class="$style.banner" :style="user.bannerUrl ? `background-image: url(${user.bannerUrl})` : ''"></div>
@@ -8,20 +13,20 @@
 	</div>
 	<span v-if="$i && $i.id !== user.id && user.isFollowed" :class="$style.followed">{{ i18n.ts.followsYou }}</span>
 	<div :class="$style.description">
-		<div v-if="user.description" class="mfm">
-			<Mfm :text="user.description" :author="user" :i="$i"/>
+		<div v-if="user.description" :class="$style.mfm">
+			<Mfm :text="user.description" :author="user"/>
 		</div>
 		<span v-else style="opacity: 0.7;">{{ i18n.ts.noAccountDescription }}</span>
 	</div>
 	<div :class="$style.status">
 		<div :class="$style.statusItem">
-			<p :class="$style.statusItemLabel">{{ i18n.ts.notes }}</p><span :class="$style.statusItemValue">{{ user.notesCount }}</span>
+			<p :class="$style.statusItemLabel">{{ i18n.ts.notes }}</p><span :class="$style.statusItemValue">{{ number(user.notesCount) }}</span>
 		</div>
-		<div :class="$style.statusItem">
-			<p :class="$style.statusItemLabel">{{ i18n.ts.following }}</p><span :class="$style.statusItemValue">{{ user.followingCount }}</span>
+		<div v-if="isFollowingVisibleForMe(user)" :class="$style.statusItem">
+			<p :class="$style.statusItemLabel">{{ i18n.ts.following }}</p><span :class="$style.statusItemValue">{{ number(user.followingCount) }}</span>
 		</div>
-		<div :class="$style.statusItem">
-			<p :class="$style.statusItemLabel">{{ i18n.ts.followers }}</p><span :class="$style.statusItemValue">{{ user.followersCount }}</span>
+		<div v-if="isFollowersVisibleForMe(user)" :class="$style.statusItem">
+			<p :class="$style.statusItemLabel">{{ i18n.ts.followers }}</p><span :class="$style.statusItemValue">{{ number(user.followersCount) }}</span>
 		</div>
 	</div>
 	<MkFollowButton v-if="$i && user.id != $i.id" :class="$style.follow" :user="user" mini/>
@@ -29,14 +34,16 @@
 </template>
 
 <script lang="ts" setup>
-import * as misskey from 'misskey-js';
+import * as Misskey from 'misskey-js';
 import MkFollowButton from '@/components/MkFollowButton.vue';
-import { userPage } from '@/filters/user';
-import { i18n } from '@/i18n';
-import { $i } from '@/account';
+import number from '@/filters/number.js';
+import { userPage } from '@/filters/user.js';
+import { i18n } from '@/i18n.js';
+import { $i } from '@/account.js';
+import { isFollowingVisibleForMe, isFollowersVisibleForMe } from '@/scripts/isFfVisibleForMe.js';
 
 defineProps<{
-	user: misskey.entities.UserDetailed;
+	user: Misskey.entities.UserDetailed;
 }>();
 </script>
 
@@ -105,7 +112,7 @@ defineProps<{
 .mfm {
 	display: -webkit-box;
 	-webkit-line-clamp: 3;
-	-webkit-box-orient: vertical;  
+	-webkit-box-orient: vertical;
 	overflow: hidden;
 }
 

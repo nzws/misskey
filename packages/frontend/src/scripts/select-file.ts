@@ -1,18 +1,25 @@
-import { ref } from 'vue';
-import { DriveFile } from 'misskey-js/built/entities';
-import * as os from '@/os';
-import { stream } from '@/stream';
-import { i18n } from '@/i18n';
-import { defaultStore } from '@/store';
-import { uploadFile } from '@/scripts/upload';
+/*
+ * SPDX-FileCopyrightText: syuilo and misskey-project
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
 
-export function chooseFileFromPc(multiple: boolean, keepOriginal = false): Promise<DriveFile[]> {
+import { ref } from 'vue';
+import * as Misskey from 'misskey-js';
+import * as os from '@/os.js';
+import { misskeyApi } from '@/scripts/misskey-api.js';
+import { useStream } from '@/stream.js';
+import { i18n } from '@/i18n.js';
+import { defaultStore } from '@/store.js';
+import { uploadFile } from '@/scripts/upload.js';
+
+export function chooseFileFromPc(multiple: boolean, keepOriginal = false): Promise<Misskey.entities.DriveFile[]> {
 	return new Promise((res, rej) => {
 		const input = document.createElement('input');
 		input.type = 'file';
 		input.multiple = multiple;
 		input.onchange = () => {
-			const promises = Array.from(input.files).map(file => uploadFile(file, defaultStore.state.uploadFolder, undefined, keepOriginal));
+			if (!input.files) return res([]);
+			const promises = Array.from(input.files, file => uploadFile(file, defaultStore.state.uploadFolder, undefined, keepOriginal));
 
 			Promise.all(promises).then(driveFiles => {
 				res(driveFiles);
@@ -32,7 +39,7 @@ export function chooseFileFromPc(multiple: boolean, keepOriginal = false): Promi
 	});
 }
 
-export function chooseFileFromDrive(multiple: boolean): Promise<DriveFile[]> {
+export function chooseFileFromDrive(multiple: boolean): Promise<Misskey.entities.DriveFile[]> {
 	return new Promise((res, rej) => {
 		os.selectDriveFile(multiple).then(files => {
 			res(files);
@@ -40,7 +47,7 @@ export function chooseFileFromDrive(multiple: boolean): Promise<DriveFile[]> {
 	});
 }
 
-export function chooseFileFromUrl(): Promise<DriveFile> {
+export function chooseFileFromUrl(): Promise<Misskey.entities.DriveFile> {
 	return new Promise((res, rej) => {
 		os.inputText({
 			title: i18n.ts.uploadFromUrl,
@@ -51,7 +58,7 @@ export function chooseFileFromUrl(): Promise<DriveFile> {
 
 			const marker = Math.random().toString(); // TODO: UUIDとか使う
 
-			const connection = stream.useChannel('main');
+			const connection = useStream().useChannel('main');
 			connection.on('urlUploadFinished', urlResponse => {
 				if (urlResponse.marker === marker) {
 					res(urlResponse.file);
@@ -59,7 +66,7 @@ export function chooseFileFromUrl(): Promise<DriveFile> {
 				}
 			});
 
-			os.api('drive/files/upload-from-url', {
+			misskeyApi('drive/files/upload-from-url', {
 				url: url,
 				folderId: defaultStore.state.uploadFolder,
 				marker,
@@ -73,7 +80,7 @@ export function chooseFileFromUrl(): Promise<DriveFile> {
 	});
 }
 
-function select(src: any, label: string | null, multiple: boolean): Promise<DriveFile[]> {
+function select(src: any, label: string | null, multiple: boolean): Promise<Misskey.entities.DriveFile[]> {
 	return new Promise((res, rej) => {
 		const keepOriginal = ref(defaultStore.state.keepOriginalUploading);
 
@@ -100,10 +107,10 @@ function select(src: any, label: string | null, multiple: boolean): Promise<Driv
 	});
 }
 
-export function selectFile(src: any, label: string | null = null): Promise<DriveFile> {
+export function selectFile(src: any, label: string | null = null): Promise<Misskey.entities.DriveFile> {
 	return select(src, label, false).then(files => files[0]);
 }
 
-export function selectFiles(src: any, label: string | null = null): Promise<DriveFile[]> {
+export function selectFiles(src: any, label: string | null = null): Promise<Misskey.entities.DriveFile[]> {
 	return select(src, label, true);
 }

@@ -2,15 +2,15 @@
 <a href="https://misskey-hub.net">
 	<img src="./assets/title_float.svg" alt="Misskey logo" style="border-radius:50%" width="400"/>
 </a>
-	
+
 **🌎 **[Misskey](https://misskey-hub.net/)** is an open source, decentralized social media platform that's free forever! 🚀**
-	
+
 ---
 
-<a href="https://misskey-hub.net/instances.html">
+<a href="https://misskey-hub.net/servers/">
 		<img src="https://custom-icon-badges.herokuapp.com/badge/find_an-instance-acea31?logoColor=acea31&style=for-the-badge&logo=misskey&labelColor=363B40" alt="find an instance"/></a>
 
-<a href="https://misskey-hub.net/docs/install.html">
+<a href="https://misskey-hub.net/docs/for-admin/install/guides/">
 		<img src="https://custom-icon-badges.herokuapp.com/badge/create_an-instance-FBD53C?logoColor=FBD53C&style=for-the-badge&logo=server&labelColor=363B40" alt="create an instance"/></a>
 
 <a href="./CONTRIBUTING.md">
@@ -21,7 +21,7 @@
 
 <a href="https://www.patreon.com/syuilo">
 		<img src="https://custom-icon-badges.herokuapp.com/badge/become_a-patron-F96854?logoColor=F96854&style=for-the-badge&logo=patreon&labelColor=363B40" alt="become a patron"/></a>
-	
+
 ---
 
 [![codecov](https://codecov.io/gh/misskey-dev/misskey/branch/develop/graph/badge.svg?token=R6IQZ3QJOL)](https://codecov.io/gh/misskey-dev/misskey)
@@ -51,7 +51,7 @@ With Misskey's built in drive, you get cloud storage right in your social media,
 
 ## Documentation
 
-Misskey Documentation can be found at [Misskey Hub](https://misskey-hub.net/), some of the links and graphics above also lead to specific portions of it.
+Misskey Documentation can be found at [Misskey Hub](https://misskey-hub.net/docs/), some of the links and graphics above also lead to specific portions of it.
 
 ## Sponsors
 

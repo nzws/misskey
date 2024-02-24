@@ -15,7 +15,7 @@ Before creating an issue, please check the following:
 - To avoid duplication, please search for similar issues before creating a new issue.
 - Do not use Issues to ask questions or troubleshooting.
 	- Issues should only be used to feature requests, suggestions, and bug tracking.
-	- Please ask questions or troubleshooting in ~~the [Misskey Forum](https://forum.misskey.io/)~~ [GitHub Discussions](https://github.com/misskey-dev/misskey/discussions) or [Discord](https://discord.gg/Wp8gVStHW3).
+	- Please ask questions or troubleshooting in [GitHub Discussions](https://github.com/misskey-dev/misskey/discussions) or [Discord](https://discord.gg/Wp8gVStHW3).
 
 > **Warning**
 > Do not close issues that are about to be resolved. It should remain open until a commit that actually resolves it is merged.
@@ -106,7 +106,7 @@ If your language is not listed in Crowdin, please open an issue.
 ![Crowdin](https://d322cqt584bo4o.cloudfront.net/misskey/localized.svg)
 
 ## Development
-During development, it is useful to use the 
+During development, it is useful to use the
 
 ```
 pnpm dev
@@ -117,6 +117,23 @@ command.
 - Server-side source files and automatically builds them if they are modified. Automatically start the server process(es).
 - Vite HMR (just the `vite` command) is available. The behavior may be different from production.
 - Service Worker is watched by esbuild.
+- The front end can be viewed by accessing `http://localhost:5173`.
+- The backend listens on the port configured with `port` in .config/default.yml.
+If you have not changed it from the default, it will be "http://localhost:3000".
+If "port" in .config/default.yml is set to something other than 3000, you need to change the proxy settings in packages/frontend/vite.config.local-dev.ts.
+
+### `MK_DEV_PREFER=backend pnpm dev`
+pnpm dev has another mode with `MK_DEV_PREFER=backend`.
+
+```
+MK_DEV_PREFER=backend pnpm dev
+```
+
+- This mode is closer to the production environment than the default mode.
+- Vite runs behind the backend (the backend will proxy Vite at /vite).
+- You can see Misskey by accessing `http://localhost:3000` (Replace `3000` with the port configured with `port` in .config/default.yml).
+- To change the port of Vite, specify with `VITE_PORT` environment variable.
+- HMR may not work in some environments such as Windows.
 
 ### Dev Container
 Instead of running `pnpm` locally, you can use Dev Container to set up your development environment.
@@ -150,7 +167,7 @@ Prepare DB/Redis for testing.
 ```
 docker compose -f packages/backend/test/docker-compose.yml up
 ```
-Alternatively, prepare an empty (data can be erased) DB and edit `.config/test.yml`. 
+Alternatively, prepare an empty (data can be erased) DB and edit `.config/test.yml`.
 
 Run all test.
 ```
@@ -214,30 +231,13 @@ Misskey uses [Storybook](https://storybook.js.org/) for UI development.
 
 ### Setup & Run
 
-#### Universal
-
-##### Setup
-
-```bash
-pnpm --filter misskey-js build
-pnpm --filter frontend tsc -p .storybook && (node packages/frontend/.storybook/preload-locale.js & node packages/frontend/.storybook/preload-theme.js)
-```
-
-##### Run
-
-```bash
-node packages/frontend/.storybook/generate.js && pnpm --filter frontend storybook dev
-```
-
-#### macOS & Linux
-
-##### Setup
+#### Setup
 
 ```bash
 pnpm --filter misskey-js build
 ```
 
-##### Run
+#### Run
 
 ```bash
 pnpm --filter frontend storybook-dev
@@ -299,18 +299,17 @@ export const argTypes = {
 			min: 1,
 			max: 4,
 		},
+	},
 };
 ```
 
 Also, you can use msw to mock API requests in the storybook. Creating a `MyComponent.stories.msw.ts` file to define the mock handlers.
 
 ```ts
-import { rest } from 'msw';
+import { HttpResponse, http } from 'msw';
 export const handlers = [
-	rest.post('/api/notes/timeline', (req, res, ctx) => {
-		return res(
-			ctx.json([]),
-		);
+	http.post('/api/notes/timeline', ({ request }) => {
+		return HttpResponse.json([]);
 	}),
 ];
 ```
@@ -318,6 +317,12 @@ export const handlers = [
 Don't forget to re-run the `.storybook/generate.js` script after adding, editing, or removing the above files.
 
 ## Notes
+
+### Misskeyのドメイン固有の概念は`Mi`をprefixする
+例えばGoogleが自社サービスをMap、Earth、DriveではなくGoogle Map、Google Earth、Google Driveのように命名するのと同じ
+コード上でMisskeyのドメイン固有の概念には`Mi`をprefixすることで、他のドメインの同様の概念と区別できるほか、名前の衝突を防ぐ。
+ただし、文脈上Misskeyのものを指すことが明らかであり、名前の衝突の恐れがない場合は、一時的なローカル変数に限って`Mi`を省略してもよい。
+
 ### How to resolve conflictions occurred at pnpm-lock.yaml?
 
 Just execute `pnpm` to fix it.
@@ -447,3 +452,6 @@ marginはそのコンポーネントを使う側が設定する
 ## その他
 ### HTMLのクラス名で follow という単語は使わない
 広告ブロッカーで誤ってブロックされる
+
+### indexというファイル名を使うな
+ESMではディレクトリインポートは廃止されているのと、ディレクトリインポートせずともファイル名が index だと何故か一部のライブラリ？でディレクトリインポートだと見做されてエラーになる

@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: syuilo and misskey-project
+SPDX-License-Identifier: AGPL-3.0-only
+-->
+
 <template>
 <div ref="rootEl">
 	<MkLoading v-if="fetching"/>
@@ -8,41 +13,46 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, nextTick } from 'vue';
+import { onMounted, nextTick, shallowRef, ref } from 'vue';
 import { Chart } from 'chart.js';
-import * as os from '@/os';
-import { defaultStore } from '@/store';
-import { useChartTooltip } from '@/scripts/use-chart-tooltip';
-import { alpha } from '@/scripts/color';
-import { initChart } from '@/scripts/init-chart';
+import { misskeyApi } from '@/scripts/misskey-api.js';
+import { defaultStore } from '@/store.js';
+import { useChartTooltip } from '@/scripts/use-chart-tooltip.js';
+import { alpha } from '@/scripts/color.js';
+import { initChart } from '@/scripts/init-chart.js';
 
 initChart();
 
-const rootEl = $shallowRef<HTMLDivElement>(null);
-const chartEl = $shallowRef<HTMLCanvasElement>(null);
-const now = new Date();
-let chartInstance: Chart = null;
-let fetching = $ref(true);
+const rootEl = shallowRef<HTMLDivElement | null>(null);
+const chartEl = shallowRef<HTMLCanvasElement | null>(null);
+let chartInstance: Chart | null = null;
+const fetching = ref(true);
 
 const { handler: externalTooltipHandler } = useChartTooltip({
 	position: 'middle',
 });
 
 async function renderChart() {
+	if (rootEl.value == null) return;
 	if (chartInstance) {
 		chartInstance.destroy();
 	}
 
-	const wide = rootEl.offsetWidth > 600;
-	const narrow = rootEl.offsetWidth < 400;
+	const wide = rootEl.value.offsetWidth > 600;
+	const narrow = rootEl.value.offsetWidth < 400;
 
 	const maxDays = wide ? 10 : narrow ? 5 : 7;
 
-	let raw = await os.api('retention', { });
+	let raw = await misskeyApi('retention', { });
 
-	raw = raw.slice(0, maxDays);
+	raw = raw.slice(0, maxDays + 1);
 
-	const data = [];
+	const data: {
+		x: number;
+		y: string;
+		v: number;
+	}[] = [];
+
 	for (const record of raw) {
 		data.push({
 			x: 0,
@@ -61,7 +71,7 @@ async function renderChart() {
 		}
 	}
 
-	fetching = false;
+	fetching.value = false;
 
 	await nextTick();
 
@@ -78,22 +88,27 @@ async function renderChart() {
 
 	const marginEachCell = 12;
 
-	chartInstance = new Chart(chartEl, {
+	if (chartEl.value == null) return;
+
+	chartInstance = new Chart(chartEl.value, {
 		type: 'matrix',
 		data: {
 			datasets: [{
 				label: 'Active',
-				data: data,
-				pointRadius: 0,
+				data: data as any,
 				borderWidth: 0,
-				borderJoinStyle: 'round',
 				borderRadius: 3,
 				backgroundColor(c) {
-					const value = c.dataset.data[c.dataIndex].v;
-					const a = value / max(c.dataset.data[c.dataIndex].y);
-					return alpha(color, a);
+					const v = c.dataset.data[c.dataIndex] as unknown as typeof data[0];
+					const value = v.v;
+					const m = max(v.y);
+					if (m === 0) {
+						return alpha(color, 0);
+					} else {
+						const a = value / m;
+						return alpha(color, a);
+					}
 				},
-				fill: true,
 				width(c) {
 					const a = c.chart.chartArea ?? {};
 					return (a.right - a.left) / maxDays - marginEachCell;
@@ -129,10 +144,13 @@ async function renderChart() {
 						autoSkip: false,
 						callback: (value, index, values) => value,
 					},
+					title: {
+						display: true,
+						text: 'Days later',
+					},
 				},
 				y: {
 					type: 'time',
-					min: new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() - maxDays),
 					offset: true,
 					reverse: true,
 					position: 'left',
@@ -165,8 +183,13 @@ async function renderChart() {
 							return getYYYYMMDD(new Date(new Date(v.y).getTime() + (v.x * 86400000)));
 						},
 						label(context) {
-							const v = context.dataset.data[context.dataIndex];
-							return [`Active: ${v.v} (${Math.round((v.v / max(v.y)) * 100)}%)`];
+							const v = context.dataset.data[context.dataIndex] as unknown as typeof data[0];
+							const m = max(v.y);
+							if (m === 0) {
+								return [`Active: ${v.v} (-%)`];
+							} else {
+								return [`Active: ${v.v} (${Math.round((v.v / m) * 100)}%)`];
+							}
 						},
 					},
 					//mode: 'index',

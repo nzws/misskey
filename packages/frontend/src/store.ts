@@ -1,5 +1,15 @@
+/*
+ * SPDX-FileCopyrightText: syuilo and misskey-project
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 import { markRaw, ref } from 'vue';
-import { Storage } from './pizzax';
+import * as Misskey from 'misskey-js';
+import { miLocalStorage } from './local-storage.js';
+import type { SoundType } from '@/scripts/sound.js';
+import type { BuiltinTheme as ShikiBuiltinTheme } from 'shiki';
+import { Storage } from '@/pizzax.js';
+import { hemisphere } from '@/scripts/intl-const.js';
 
 interface PostFormAction {
 	title: string,
@@ -8,16 +18,16 @@ interface PostFormAction {
 
 interface UserAction {
 	title: string,
-	handler: (user: UserDetailed) => void;
+	handler: (user: Misskey.entities.UserDetailed) => void;
 }
 
 interface NoteAction {
 	title: string,
-	handler: (note: Note) => void;
+	handler: (note: Misskey.entities.Note) => void;
 }
 
 interface NoteViewInterruptor {
-	handler: (note: Note) => unknown;
+	handler: (note: Misskey.entities.Note) => unknown;
 }
 
 interface NotePostInterruptor {
@@ -25,7 +35,23 @@ interface NotePostInterruptor {
 }
 
 interface PageViewInterruptor {
-	handler: (page: Page) => unknown;
+	handler: (page: Misskey.entities.Page) => unknown;
+}
+
+/** サウンド設定 */
+export type SoundStore = {
+	type: Exclude<SoundType, '_driveFile_'>;
+	volume: number;
+} | {
+	type: '_driveFile_';
+
+	/** ドライブのファイルID */
+	fileId: string;
+
+	/** ファイルURL（こちらが優先される） */
+	fileUrl: string;
+
+	volume: number;
 }
 
 export const postFormActions: PostFormAction[] = [];
@@ -42,9 +68,14 @@ export const defaultStore = markRaw(new Storage('base', {
 		where: 'account',
 		default: 0,
 	},
-	timelineTutorial: {
+	timelineTutorials: {
 		where: 'account',
-		default: 0,
+		default: {
+			home: false,
+			local: false,
+			social: false,
+			global: false,
+		},
 	},
 	keepCw: {
 		where: 'account',
@@ -90,13 +121,13 @@ export const defaultStore = markRaw(new Storage('base', {
 		where: 'account',
 		default: ['👍', '❤️', '😆', '🤔', '😮', '🎉', '💢', '😥', '😇', '🍮'],
 	},
-	reactionAcceptance: {
-		where: 'account',
-		default: null as 'likeOnly' | 'likeOnlyForRemote' | null,
-	},
-	mutedWords: {
+	pinnedEmojis: {
 		where: 'account',
 		default: [],
+	},
+	reactionAcceptance: {
+		where: 'account',
+		default: 'nonSensitiveOnly' as 'likeOnly' | 'likeOnlyForRemote' | 'nonSensitiveOnly' | 'nonSensitiveOnlyForLocalLikeOnlyForRemote' | null,
 	},
 	mutedAds: {
 		where: 'account',
@@ -107,7 +138,7 @@ export const defaultStore = markRaw(new Storage('base', {
 		where: 'deviceAccount',
 		default: [
 			'notifications',
-			'favorites',
+			'clips',
 			'drive',
 			'followRequests',
 			'-',
@@ -124,6 +155,10 @@ export const defaultStore = markRaw(new Storage('base', {
 	},
 	localOnly: {
 		where: 'deviceAccount',
+		default: false,
+	},
+	showPreview: {
+		where: 'device',
 		default: false,
 	},
 	statusbars: {
@@ -149,9 +184,19 @@ export const defaultStore = markRaw(new Storage('base', {
 	tl: {
 		where: 'deviceAccount',
 		default: {
-			src: 'home' as 'home' | 'local' | 'social' | 'global',
-			arg: null,
+			src: 'home' as 'home' | 'local' | 'social' | 'global' | `list:${string}`,
+			userList: null as Misskey.entities.UserList | null,
+			filter: {
+				withReplies: true,
+				withRenotes: true,
+				withSensitive: true,
+				onlyFiles: false,
+			},
 		},
+	},
+	pinnedUserLists: {
+		where: 'deviceAccount',
+		default: [] as Misskey.entities.UserList[],
 	},
 
 	overridedDeviceKind: {
@@ -166,6 +211,10 @@ export const defaultStore = markRaw(new Storage('base', {
 		where: 'device',
 		default: 'respect' as 'respect' | 'force' | 'ignore',
 	},
+	highlightSensitiveMedia: {
+		where: 'device',
+		default: false,
+	},
 	animation: {
 		where: 'device',
 		default: !window.matchMedia('(prefers-reduced-motion)').matches,
@@ -178,15 +227,15 @@ export const defaultStore = markRaw(new Storage('base', {
 		where: 'device',
 		default: true,
 	},
+	enableQuickAddMfmFunction: {
+		where: 'device',
+		default: false,
+	},
 	loadRawImages: {
 		where: 'device',
 		default: false,
 	},
 	imageNewTab: {
-		where: 'device',
-		default: false,
-	},
-	enableDataSaverMode: {
 		where: 'device',
 		default: false,
 	},
@@ -238,19 +287,19 @@ export const defaultStore = markRaw(new Storage('base', {
 		where: 'device',
 		default: 'remote' as 'none' | 'remote' | 'always',
 	},
-	reactionPickerSize: {
+	emojiPickerScale: {
 		where: 'device',
 		default: 1,
 	},
-	reactionPickerWidth: {
+	emojiPickerWidth: {
 		where: 'device',
 		default: 1,
 	},
-	reactionPickerHeight: {
+	emojiPickerHeight: {
 		where: 'device',
 		default: 2,
 	},
-	reactionPickerUseDrawerForMobile: {
+	emojiPickerUseDrawerForMobile: {
 		where: 'device',
 		default: true,
 	},
@@ -278,6 +327,10 @@ export const defaultStore = markRaw(new Storage('base', {
 		where: 'device',
 		default: false,
 	},
+	showAvatarDecorations: {
+		where: 'device',
+		default: true,
+	},
 	postFormWithHashtags: {
 		where: 'device',
 		default: false,
@@ -302,15 +355,23 @@ export const defaultStore = markRaw(new Storage('base', {
 		where: 'device',
 		default: false,
 	},
-	largeNoteReactions: {
+	reactionsDisplaySize: {
 		where: 'device',
-		default: false,
+		default: 'medium' as 'small' | 'medium' | 'large',
+	},
+	limitWidthOfReaction: {
+		where: 'device',
+		default: true,
 	},
 	forceShowAds: {
 		where: 'device',
 		default: false,
 	},
 	aiChanMode: {
+		where: 'device',
+		default: false,
+	},
+	devMode: {
 		where: 'device',
 		default: false,
 	},
@@ -328,7 +389,92 @@ export const defaultStore = markRaw(new Storage('base', {
 	},
 	enableCondensedLineForAcct: {
 		where: 'device',
+		default: false,
+	},
+	additionalUnicodeEmojiIndexes: {
+		where: 'device',
+		default: {} as Record<string, Record<string, string[]>>,
+	},
+	keepScreenOn: {
+		where: 'device',
+		default: false,
+	},
+	defaultWithReplies: {
+		where: 'account',
+		default: false,
+	},
+	disableStreamingTimeline: {
+		where: 'device',
+		default: false,
+	},
+	useGroupedNotifications: {
+		where: 'device',
 		default: true,
+	},
+	dataSaver: {
+		where: 'device',
+		default: {
+			media: false,
+			avatar: false,
+			urlPreview: false,
+			code: false,
+		} as Record<string, boolean>,
+	},
+	enableSeasonalScreenEffect: {
+		where: 'device',
+		default: false,
+	},
+	dropAndFusion: {
+		where: 'device',
+		default: {
+			bgmVolume: 0.25,
+			sfxVolume: 1,
+		},
+	},
+  hemisphere: {
+		where: 'device',
+		default: hemisphere as 'N' | 'S',
+  },
+	enableHorizontalSwipe: {
+		where: 'device',
+		default: true,
+	},
+
+	sound_masterVolume: {
+		where: 'device',
+		default: 0.3,
+	},
+	sound_notUseSound: {
+		where: 'device',
+		default: false,
+	},
+	sound_useSoundOnlyWhenActive: {
+		where: 'device',
+		default: false,
+	},
+	sound_note: {
+		where: 'device',
+		default: { type: 'syuilo/n-aec', volume: 1 } as SoundStore,
+	},
+	sound_noteMy: {
+		where: 'device',
+		default: { type: 'syuilo/n-cea-4va', volume: 1 } as SoundStore,
+	},
+	sound_notification: {
+		where: 'device',
+		default: { type: 'syuilo/n-ea', volume: 1 } as SoundStore,
+	},
+	sound_antenna: {
+		where: 'device',
+		default: { type: 'syuilo/triple', volume: 1 } as SoundStore,
+	},
+	sound_channel: {
+		where: 'device',
+		default: { type: 'syuilo/square-pico', volume: 1 } as SoundStore,
+	},
+	sound_reaction: {
+		where: 'device',
+		default: { type: 'syuilo/bubble2', volume: 1 } as SoundStore,
 	},
 }));
 
@@ -346,6 +492,9 @@ export type Plugin = {
 	src: string | null;
 	version: string;
 	ast: any[];
+	author?: string;
+	description?: string;
+	permissions?: string[];
 };
 
 interface Watcher {
@@ -356,10 +505,8 @@ interface Watcher {
 /**
  * 常にメモリにロードしておく必要がないような設定情報を保管するストレージ(非リアクティブ)
  */
-import { miLocalStorage } from './local-storage';
 import lightTheme from '@/themes/l-light.json5';
 import darkTheme from '@/themes/d-green-lime.json5';
-import { Note, UserDetailed, Page } from 'misskey-js/built/entities';
 
 export class ColdDeviceStorage {
 	public static default = {

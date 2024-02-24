@@ -1,19 +1,26 @@
+/*
+ * SPDX-FileCopyrightText: syuilo and misskey-project
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
 import { Injectable } from '@nestjs/common';
 import { isUserRelated } from '@/misc/is-user-related.js';
 import type { Packed } from '@/misc/json-schema.js';
 import { NoteEntityService } from '@/core/entities/NoteEntityService.js';
 import { bindThis } from '@/decorators.js';
-import Channel from '../channel.js';
-import { StreamMessages } from '../types.js';
+import { RoleService } from '@/core/RoleService.js';
+import type { GlobalEvents } from '@/core/GlobalEventService.js';
+import Channel, { type MiChannelService } from '../channel.js';
 
 class RoleTimelineChannel extends Channel {
 	public readonly chName = 'roleTimeline';
 	public static shouldShare = false;
-	public static requireCredential = false;
+	public static requireCredential = false as const;
 	private roleId: string;
 
 	constructor(
 		private noteEntityService: NoteEntityService,
+		private roleservice: RoleService,
 
 		id: string,
 		connection: Channel['connection'],
@@ -30,9 +37,14 @@ class RoleTimelineChannel extends Channel {
 	}
 
 	@bindThis
-	private async onEvent(data: StreamMessages['roleTimeline']['payload']) {
+	private async onEvent(data: GlobalEvents['roleTimeline']['payload']) {
 		if (data.type === 'note') {
 			const note = data.body;
+
+			if (!(await this.roleservice.isExplorable({ id: this.roleId }))) {
+				return;
+			}
+			if (note.visibility !== 'public') return;
 
 			// 流れてきたNoteがミュートしているユーザーが関わるものだったら無視する
 			if (isUserRelated(note, this.userIdsWhoMeMuting)) return;
@@ -55,12 +67,14 @@ class RoleTimelineChannel extends Channel {
 }
 
 @Injectable()
-export class RoleTimelineChannelService {
+export class RoleTimelineChannelService implements MiChannelService<false> {
 	public readonly shouldShare = RoleTimelineChannel.shouldShare;
 	public readonly requireCredential = RoleTimelineChannel.requireCredential;
+	public readonly kind = RoleTimelineChannel.kind;
 
 	constructor(
 		private noteEntityService: NoteEntityService,
+		private roleservice: RoleService,
 	) {
 	}
 
@@ -68,6 +82,7 @@ export class RoleTimelineChannelService {
 	public create(id: string, connection: Channel['connection']): RoleTimelineChannel {
 		return new RoleTimelineChannel(
 			this.noteEntityService,
+			this.roleservice,
 			id,
 			connection,
 		);
